@@ -13,10 +13,15 @@ GLEW ( http://glew.sourceforge.net/ ) to run.
 For usage example see main.cpp
  
 Building: 
+
 mkdir build 
-cd build 
+
+cd build
+ 
 cmake -DCMAKE_BUILD_TYPE=Release ..
+
 make 
+
  
 Running:
 ./instanced_font_rendering 
