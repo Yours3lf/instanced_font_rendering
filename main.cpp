@@ -1,0 +1,320 @@
+#include <iostream>
+#include <map>
+#include <algorithm>
+#include <sstream>
+#include <fstream>
+
+#include "SFML/Window.hpp"
+
+#include "mymath/mymath.h"
+
+#include "font.h"
+
+#define STRINGIFY(s) #s
+#define INFOLOG_SIZE 4096
+
+using namespace std;
+using namespace mymath;
+
+void compile_shader( const char* text, const GLuint& program, const GLenum& type );
+void link_shader( const GLuint& shader_program );
+void load_shader( GLuint& program, const GLenum& type, const string& filename );
+
+int main( int argc, char** argv )
+{
+  map<string, string> args;
+
+  for( int c = 1; c < argc; ++c )
+  {
+    args[argv[c]] = c + 1 < argc ? argv[c + 1] : "";
+    ++c;
+  }
+
+  cout << "Arguments: " << endl;
+  for_each( args.begin(), args.end(), []( pair<string, string> p )
+  {
+    cout << p.first << " " << p.second << endl;
+  } );
+
+  uvec2 screen( 0 );
+  bool fullscreen = false;
+  bool silent = false;
+  string title = "Basic CPP to get started";
+
+  /*
+   * Process program arguments
+   */
+
+  stringstream ss;
+  ss.str( args["--screenx"] );
+  ss >> screen.x;
+  ss.clear();
+  ss.str( args["--screeny"] );
+  ss >> screen.y;
+  ss.clear();
+
+  if( screen.x == 0 )
+  {
+    screen.x = 1280;
+  }
+
+  if( screen.y == 0 )
+  {
+    screen.y = 720;
+  }
+
+  try
+  {
+    args.at( "--fullscreen" );
+    fullscreen = true;
+  }
+  catch( ... ) {}
+
+  try
+  {
+    args.at( "--help" );
+    cout << title << ", written by Marton Tamas." << endl <<
+         "Usage: --silent      //don't display FPS info in the terminal" << endl <<
+         "       --screenx num //set screen width (default:1280)" << endl <<
+         "       --screeny num //set screen height (default:720)" << endl <<
+         "       --fullscreen  //set fullscreen, windowed by default" << endl <<
+         "       --help        //display this information" << endl;
+    return 0;
+  }
+  catch( ... ) {}
+
+  try
+  {
+    args.at( "--silent" );
+    silent = true;
+  }
+  catch( ... ) {}
+
+  /*
+   * Initialize the OpenGL context
+   */
+
+  sf::Window the_window;
+  the_window.create( sf::VideoMode( screen.x > 0 ? screen.x : 1280, screen.y > 0 ? screen.y : 720, 32 ), title, fullscreen ? sf::Style::Fullscreen : sf::Style::Default );
+
+  if( !the_window.isOpen() )
+  {
+    cerr << "Couldn't initialize SFML." << endl;
+    the_window.close();
+    exit( 1 );
+  }
+
+  GLenum glew_error = glewInit();
+
+  glGetError(); //ignore glew errors
+
+  cout << "Vendor: " << glGetString( GL_VENDOR ) << endl;
+  cout << "Renderer: " << glGetString( GL_RENDERER ) << endl;
+  cout << "OpenGL version: " << glGetString( GL_VERSION ) << endl;
+  cout << "GLSL version: " << glGetString( GL_SHADING_LANGUAGE_VERSION ) << endl;
+
+  if( glew_error != GLEW_OK )
+  {
+    cerr << "Error initializing GLEW: " << glewGetErrorString( glew_error ) << endl;
+    the_window.close();
+    exit( 1 );
+  }
+
+  if( !GLEW_VERSION_4_3 )
+  {
+    cerr << "Error: " << STRINGIFY( GLEW_VERSION_4_3 ) << " is required" << endl;
+    the_window.close();
+    exit( 1 );
+  }
+
+  //set opengl settings
+  glEnable( GL_DEPTH_TEST );
+  glDepthFunc( GL_LEQUAL );
+  glFrontFace( GL_CCW );
+  glEnable( GL_CULL_FACE );
+  glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+  glClearDepth( 1.0f );
+
+  /*
+   * Set up mymath
+   */
+
+  glViewport( 0, 0, screen.x, screen.y );
+
+  /*
+   * Set up the shaders
+   */
+
+  load_shader( font::get().get_shader(), GL_VERTEX_SHADER, "../shaders/font/font.vs" );
+  load_shader( font::get().get_shader(), GL_FRAGMENT_SHADER, "../shaders/font/font.ps" );
+
+  font_inst instance;
+  font::get().resize( screen );
+  font::get().load_font( "../resources/font.ttf", instance, 22 );
+
+  std::wstring text;
+  //text = L"hello world\n";
+  for( int c = 0; c < 32; ++c )
+    text += L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
+
+  /*
+   * Handle events
+   */
+
+  bool run;
+
+  auto event_handler = [&]( const sf::Event & ev )
+  {
+    switch( ev.type )
+    {
+      case sf::Event::TextEntered:
+      {
+        if( ev.text.unicode >= 32 && ev.text.unicode <= 127 )
+          text += ev.text.unicode;
+        break;
+      }
+      case sf::Event::KeyPressed:
+      {
+        if( ev.key.code == sf::Keyboard::Delete )
+          if( !text.empty() )
+            text.pop_back();
+
+        if( ev.key.code == sf::Keyboard::BackSpace )
+          if( !text.empty() )
+            text.pop_back();
+
+        if( ev.key.code == sf::Keyboard::Return )
+          text += L"\n";
+
+        if( ev.key.code == sf::Keyboard::Escape )
+          run = false;
+      }
+      default:
+        break;
+    }
+  };
+
+  /*
+   * Render
+   */
+
+  sf::Clock timer;
+  timer.restart();
+  unsigned int frame_count = 0;
+
+  sf::Event the_event;
+
+  while( run )
+  {
+    while( the_window.pollEvent( the_event ) )
+    {
+      if( the_event.type == sf::Event::Closed ||
+          (
+            the_event.type == sf::Event::KeyPressed &&
+            the_event.key.code == sf::Keyboard::Escape
+          )
+        )
+      {
+        run = false;
+      }
+
+      event_handler( the_event );
+    }
+
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+    font::get().add_to_text( instance, text + L"_" );
+    font::get().render( instance );
+
+    ++frame_count;
+
+    if( timer.getElapsedTime().asMilliseconds() > 1000 && !silent )
+    {
+      int timepassed = timer.getElapsedTime().asMilliseconds();
+      int fps = 1000.0f / ( ( float ) timepassed / ( float ) frame_count );
+
+      string ttl = title;
+
+      ss << " - FPS: " << fps 
+         << " - Time: " << ( float ) timepassed / ( float ) frame_count;
+
+      ttl += ss.str();
+      ss.str("");
+
+      the_window.setTitle( ttl );
+
+      frame_count = 0;
+      timer.restart();
+    }
+
+    the_window.display();
+  };
+
+  font::get().destroy();
+
+  return 0;
+}
+
+void compile_shader( const char* text, const GLuint& program, const GLenum& type ) 
+{
+  GLchar infolog[INFOLOG_SIZE];
+
+  GLuint id = glCreateShader( type );
+  glShaderSource( id, 1, &text, 0 );
+  glCompileShader( id );
+
+  GLint success;
+  glGetShaderiv( id, GL_COMPILE_STATUS, &success );
+
+  if( !success )
+  {
+    glGetShaderInfoLog( id, INFOLOG_SIZE, 0, infolog );
+    cerr << infolog << endl;
+  }
+  else
+  {
+    glAttachShader( program, id );
+    glDeleteShader( id );
+  }
+}
+
+void link_shader( const GLuint& shader_program )
+{
+  glLinkProgram( shader_program );
+
+  GLint success;
+  glGetProgramiv( shader_program, GL_LINK_STATUS, &success );
+
+  if( !success )
+  {
+    GLchar infolog[INFOLOG_SIZE];
+    glGetProgramInfoLog( shader_program, INFOLOG_SIZE, 0, infolog );
+    cout << infolog << endl;
+  }
+
+  glValidateProgram( shader_program );
+
+  glGetProgramiv( shader_program, GL_VALIDATE_STATUS, &success );
+
+  if( !success )
+  {
+    GLchar infolog[INFOLOG_SIZE];
+    glGetProgramInfoLog( shader_program, INFOLOG_SIZE, 0, infolog );
+    cout << infolog << endl;
+  }
+}
+
+void load_shader( GLuint& program, const GLenum& type, const string& filename )
+{
+  ifstream f( filename );
+	  
+  if( !f ) cerr << "Couldn't load shader: " << filename << endl;
+	  
+  string str( ( istreambuf_iterator<char>( f ) ),
+              istreambuf_iterator<char>() );
+
+  if( !program ) program = glCreateProgram();
+
+  compile_shader( str.c_str(), program, type );
+  link_shader( program );
+}

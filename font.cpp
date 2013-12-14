@@ -1,0 +1,509 @@
+#include "font.h"
+
+#include "ft2build.h"
+#include FT_FREETYPE_H
+
+#define MAX_TEX_SIZE 2048
+#define MIN_TEX_SIZE 128
+
+#define FONT_VERTEX 0
+#define FONT_TEXCOORD 1
+#define FONT_VERTSCALEBIAS 2
+#define FONT_TEXSCALEBIAS 3
+#define FONT_FACE 4
+
+struct glyph
+{
+  float offset_x;
+  float offset_y;
+  float w;
+  float h;
+  float texcoords[4];
+  FT_Glyph_Metrics metrics;
+  FT_Vector advance;
+  FT_UInt glyphid;
+  unsigned int cache_index;
+};
+
+library::library() : the_library( 0 ), tex( 0 ), vao( 0 ), the_shader( 0 ), is_set_up( false )
+{
+  for( int c = 0; c < 5; ++c )
+    vbos[c] = 0;
+
+  FT_Error error;
+  error = FT_Init_FreeType( ( FT_Library* )&the_library );
+
+  if( error )
+  {
+    std::cerr << "Error initializing the freetype library." << std::endl;
+  }
+}
+
+void library::destroy()
+{
+  glDeleteTextures( 1, &tex );
+  glDeleteVertexArrays( 1, &vao );
+  glDeleteBuffers( 5, vbos );
+  glDeleteProgram( the_shader );
+}
+
+library::~library()
+{
+  if( the_library )
+  {
+    FT_Error error;
+    error = FT_Done_FreeType( ( FT_Library )the_library );
+
+    if( error )
+    {
+      std::cerr << "Error destroying the freetype library." << std::endl;
+    }
+  }
+}
+
+void library::set_up()
+{
+  if( is_set_up ) return;
+
+  glGenTextures( 1, &tex );
+
+  std::vector<mm::uvec3> faces;
+  std::vector<mm::vec2> vertices;
+  std::vector<mm::vec2> texcoords;
+  faces.resize( 2 );
+  vertices.resize( 4 );
+  texcoords.resize( 4 );
+
+  faces[0] = mm::uvec3( 2, 1, 0 );
+  faces[1] = mm::uvec3( 0, 3, 2 );
+
+  vertices[0] = mm::vec2( 0, 0 );
+  vertices[1] = mm::vec2( 0, 1 );
+  vertices[2] = mm::vec2( 1, 1 );
+  vertices[3] = mm::vec2( 1, 0 );
+
+  texcoords[0] = mm::vec2( 0, 0 );
+  texcoords[1] = mm::vec2( 0, 1 );
+  texcoords[2] = mm::vec2( 1, 1 );
+  texcoords[3] = mm::vec2( 1, 0 );
+
+  glGenVertexArrays( 1, &vao );
+  glBindVertexArray( vao );
+
+  glGenBuffers( 1, &vbos[FONT_VERTEX] );
+  glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_VERTEX] );
+  glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec2 ) * vertices.size(), &vertices[0], GL_STATIC_DRAW );
+  glEnableVertexAttribArray( FONT_VERTEX );
+  glVertexAttribPointer( FONT_VERTEX, 2, GL_FLOAT, false, 0, 0 );
+
+  glGenBuffers( 1, &vbos[FONT_TEXCOORD] );
+  glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TEXCOORD] );
+  glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec2 ) * texcoords.size(), &texcoords[0], GL_STATIC_DRAW );
+  glEnableVertexAttribArray( FONT_TEXCOORD );
+  glVertexAttribPointer( FONT_TEXCOORD, 2, GL_FLOAT, false, 0, 0 );
+
+  glGenBuffers( 1, &vbos[FONT_VERTSCALEBIAS] );
+  glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_VERTSCALEBIAS] );
+  glEnableVertexAttribArray( FONT_VERTSCALEBIAS );
+  glVertexAttribPointer( FONT_VERTSCALEBIAS, 4, GL_FLOAT, false, sizeof(mm::vec4), 0 );
+  glVertexAttribDivisor( FONT_VERTSCALEBIAS, 1 );
+
+  glGenBuffers( 1, &vbos[FONT_TEXSCALEBIAS] );
+  glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TEXSCALEBIAS] );
+  glEnableVertexAttribArray( FONT_TEXSCALEBIAS );
+  glVertexAttribPointer( FONT_TEXSCALEBIAS, 4, GL_FLOAT, false, sizeof(mm::vec4), 0 );
+  glVertexAttribDivisor( FONT_TEXSCALEBIAS, 1 );
+
+  glGenBuffers( 1, &vbos[FONT_FACE] );
+  glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, vbos[FONT_FACE] );
+  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( mm::uvec3 ) * faces.size(), &faces[0], GL_STATIC_DRAW );
+
+  glBindVertexArray( 0 );
+
+  is_set_up = true;
+}
+
+void library::expand_tex()
+{
+  glBindTexture( GL_TEXTURE_RECTANGLE, tex );
+
+  if( texsize.x == 0 || texsize.y == 0 )
+  {
+    texsize.x = MAX_TEX_SIZE;
+    texsize.y = MIN_TEX_SIZE;
+
+    GLubyte* buf = new GLubyte[texsize.x * texsize.y];
+    memset( buf, 0, texsize.x * texsize.y * sizeof( GLubyte ) );
+
+    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE );
+    glTexImage2D( GL_TEXTURE_RECTANGLE, 0, GL_R8, texsize.x, texsize.y, 0, GL_RED, GL_UNSIGNED_BYTE, buf );
+
+    texture_pen.x = 1;
+    texture_pen.y = 1;
+    texture_row_h = 0;
+
+    delete [] buf;
+  }
+  else
+  {
+    GLubyte* buf = new GLubyte[texsize.x * texsize.y];
+
+    glGetTexImage( GL_TEXTURE_RECTANGLE, 0, GL_RED, GL_UNSIGNED_BYTE, buf );
+
+    int tmp_height = texsize.y;
+    texsize.y += MIN_TEX_SIZE;
+
+    if( texsize.y > MAX_TEX_SIZE )
+    {
+      texsize.y = MAX_TEX_SIZE;
+    }
+
+    GLubyte* tmpbuf = new GLubyte[texsize.x * texsize.y];
+    memset( tmpbuf, 0, texsize.x * texsize.y * sizeof( GLubyte ) );
+
+    glTexImage2D( GL_TEXTURE_RECTANGLE, 0, GL_R8, texsize.x, texsize.y, 0, GL_RED, GL_UNSIGNED_BYTE, tmpbuf );
+    glTexSubImage2D( GL_TEXTURE_RECTANGLE, 0, 0, 0, texsize.x, tmp_height, GL_RED, GL_UNSIGNED_BYTE, buf );
+
+    delete [] buf;
+    delete [] tmpbuf;
+  }
+}
+
+font_inst::face::face() : size( 0 ), the_face( 0 ), glyphs(0){}
+
+font_inst::face::face( const std::string& filename, unsigned int index )
+{
+  FT_Error error;
+  error = FT_New_Face( ( FT_Library )library::get().get_library(), filename.c_str(), index, ( FT_Face* )&the_face );
+
+  glyphs = new std::map< unsigned int, std::map<uint32_t, glyph> >();
+
+  if( error )
+  {
+    std::cerr << "Error loading font face: " << filename << std::endl;
+    the_face = 0;
+  }
+}
+
+font_inst::face::~face()
+{
+  //TODO invalidate glyphs in the library, and its tex
+  FT_Done_Face( ( FT_Face )the_face );
+  delete glyphs;
+}
+
+void font_inst::face::set_size( unsigned int val )
+{
+  if( the_face )
+  {
+    size = val;
+    FT_Set_Char_Size( ( FT_Face )the_face, size * 64.0f, size * 64.0f, 0.0f, 0.0f );
+  }
+}
+
+void font_inst::face::load_glyph( unsigned int val )
+{
+  if( (*glyphs)[size].count( val ) == 0 && the_face )
+  {
+    FT_Error error;
+
+    error = FT_Load_Char( ( FT_Face )the_face, ( const FT_UInt )val, FT_LOAD_DEFAULT | FT_LOAD_IGNORE_TRANSFORM | FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT );
+
+    if( error )
+    {
+      std::cout << "Error loading character: " << ( wchar_t )val << std::endl;
+    }
+
+    auto texsize = library::get().get_texsize();
+    auto& texpen = library::get().get_texture_pen();
+    auto& texrowh = library::get().get_tex_row_h();
+
+    if( texsize.x == 0 || texsize.y == 0 )
+    {
+      library::get().expand_tex();
+    }
+
+    FT_Bitmap* bitmap = &( ( FT_Face )the_face )->glyph->bitmap;
+
+    if( texpen.x + bitmap->width + 1 > ( int )texsize.x )
+    {
+      texpen.y += texrowh + 1;
+      texpen.x = 1;
+      texrowh = 0;
+    }
+
+    if( texpen.y + bitmap->rows + 1 > ( int )texsize.y )
+    {
+      library::get().expand_tex();
+    }
+
+    GLubyte* data;
+    int glyph_size = bitmap->width * bitmap->rows;
+    data = new GLubyte[glyph_size];
+
+    int c = 0;
+
+    for( int y = 0; y < bitmap->rows; y++ )
+    {
+      for( int x = 0; x < bitmap->width; x++ )
+      {
+        data[x + ( bitmap->rows - 1 - y ) * bitmap->width] = bitmap->buffer[c++];
+      }
+    }
+
+    GLint uplast;
+    glGetIntegerv( GL_UNPACK_ALIGNMENT, &uplast );
+
+    if( uplast != 1 )
+    {
+      glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+    }
+
+    glBindTexture( GL_TEXTURE_RECTANGLE, library::get().get_tex() );
+    glTexSubImage2D( GL_TEXTURE_RECTANGLE, 0, texpen.x, texpen.y, bitmap->width, bitmap->rows, GL_RED, GL_UNSIGNED_BYTE, data );
+
+    delete [] data;
+
+    if( uplast != 1 )
+    {
+      glPixelStorei( GL_UNPACK_ALIGNMENT, uplast );
+    }
+
+    glyph* g = &(*glyphs)[size][val];
+
+    g->glyphid = FT_Get_Char_Index( ( FT_Face )the_face, ( const FT_ULong )val );
+
+    g->metrics = ( ( FT_Face )the_face )->glyph->metrics;
+    g->advance = ( ( FT_Face )the_face )->glyph->advance;
+
+    g->offset_x = ( float )( ( FT_Face )the_face )->glyph->bitmap_left;
+    g->offset_y = ( float )( ( FT_Face )the_face )->glyph->bitmap_top;
+    g->w = ( float )bitmap->width;
+    g->h = ( float )bitmap->rows;
+
+    g->texcoords[0] = ( float )texpen.x - 0.5f;
+    g->texcoords[1] = ( float )texpen.y - 0.5f;
+    g->texcoords[2] = ( float )texpen.x + ( float )bitmap->width + 0.5f;
+    g->texcoords[3] = ( float )texpen.y + ( float )bitmap->rows + 0.5f;
+
+    texpen.x += bitmap->width + 1;
+
+    if( bitmap->rows > texrowh )
+    {
+      texrowh = bitmap->rows;
+    }
+  }
+}
+
+float font_inst::face::advance( const uint32_t prev, const uint32_t next )
+{
+  if( the_face )
+  {
+    if( next && FT_HAS_KERNING( ( ( FT_Face )the_face ) ) )
+    {
+      FT_Vector kern;
+      FT_Get_Kerning( ( FT_Face )the_face, prev, next, FT_KERNING_DEFAULT, &kern );
+      return ( float )( (*glyphs)[size][prev].advance.x >> 6 ) + ( float )( kern.x >> 6 );
+    }
+    else
+    {
+      return ( float )( (*glyphs)[size][prev].advance.x >> 6 );
+    }
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+float font_inst::face::height()
+{
+  if( the_face )
+  {
+    return ( float )( ( ( FT_Face )the_face )->size->metrics.height >> 6 );
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+float font_inst::face::ascender()
+{
+  if( the_face )
+  {
+    return ( float )( ( ( FT_Face )the_face )->size->metrics.ascender >> 6 );
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+float font_inst::face::descender()
+{
+  if( the_face )
+  {
+    return ( float )( ( ( FT_Face )the_face )->size->metrics.descender >> 6 );
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+glyph& font_inst::face::get_glyph( uint32_t i )
+{
+  return (*glyphs)[size][i];
+}
+
+void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned int size )
+{
+  std::cout << "-Loading: " << filename << std::endl;
+
+  library::get().set_up();
+
+  //load directly from font
+  font_ptr.the_face = new font_inst::face( filename );
+  font_ptr.the_face->set_size( size );
+
+  std::wstring cachestring = L"0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"";
+
+  std::for_each( cachestring.begin(), cachestring.end(),
+                  [&]( wchar_t & c )
+  {
+    font_ptr.the_face->load_glyph( c );
+  } );
+
+  //write_texture_to_file( "font_cache.png", the_lib->tex, GL_TEXTURE_RECTANGLE );
+
+  unsigned int numofchars = cachestring.length();
+
+  unsigned int fdsize = library::get().get_font_data_size();
+
+  for( unsigned int c = 0; c < numofchars; c++ )
+  {
+    auto& g = font_ptr.the_face->get_glyph(cachestring[c]);
+    g.cache_index = fdsize + c;
+
+    mm::vec2 vertbias = mm::vec2(g.offset_x - 0.5f, -0.5f - ( g.h - g.offset_y ));
+    mm::vec2 vertscale = mm::vec2(g.offset_x + g.w + 0.5f, 0.5f + g.h - ( g.h - g.offset_y )) - vertbias;
+
+    //texcoords
+    mm::vec2 texbias = mm::vec2(g.texcoords[0], g.texcoords[1]);
+    mm::vec2 texscale = mm::vec2(g.texcoords[2], g.texcoords[3]) - texbias;
+
+    library::get().add_font_data(fontscalebias(vertscale, vertbias, texscale, texbias));
+  }
+
+  resize( screensize );
+}
+
+void font::resize( mm::uvec2 ss )
+{
+  screensize = ss;
+  font_frame.set_ortographic( 0.0f, ( float )ss.x, 0.0f, ( float )ss.y, 0.0f, 1.0f );
+}
+
+void font::render( font_inst& font_ptr, mm::uvec2 pos )
+{
+  //glDisable( GL_CULL_FACE );
+  //glDisable( GL_DEPTH_TEST );
+  glEnable( GL_BLEND );
+  glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+  library::get().bind_shader();
+
+  //mvp is now only the projection matrix
+  mm::mat4 mat = font_frame.projection_matrix;
+  glUniformMatrix4fv( 0, 1, false, &mat[0].x );
+
+  glActiveTexture( GL_TEXTURE0 );
+  library::get().bind_texture();
+
+  library::get().bind_vao();
+
+  unsigned int yy = pos.y;
+  unsigned int xx = pos.x;
+
+  yy += font_ptr.the_face->get_size();
+
+  static std::vector<mm::vec4> vertscalebias;
+  static std::vector<mm::vec4> texscalebias;
+
+  for( int c = 0; c < int( font_ptr.txt.size() ) - 1; c++ )
+  {
+    while( font_ptr.txt[c] == L' ' && c < font_ptr.txt.size() - 1 )
+    {
+      if( c > 0 && font_ptr.txt[c - 1] != L' ' )
+      {
+        xx += font_ptr.the_face->advance( font_ptr.txt[c - 1], 63 );
+      }
+      else
+      {
+        xx += font_ptr.the_face->advance( 63, 63 );
+      }
+
+      ++c;
+    }
+
+    while( font_ptr.txt[c] == L'\n' && font_ptr.txt.size() - 1 )
+    {
+      yy += font_ptr.the_face->get_size();
+      xx = pos.x;
+      ++c;
+    }
+
+    if( font_ptr.txt[c] == L' ' )
+    {
+      break;
+    }
+
+    if( c != 0 )
+    {
+      if( font_ptr.txt[c - 1] != L' ' )
+      {
+        xx += font_ptr.the_face->advance( font_ptr.txt[c - 1], font_ptr.txt[c] );
+      }
+      else
+      {
+        xx += font_ptr.the_face->advance( 63, font_ptr.txt[c] );
+      }
+    }
+    
+    if( c < font_ptr.txt.size() )
+    {
+      unsigned int finalx = xx;
+
+      mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
+
+      unsigned int datapos = font_ptr.the_face->get_glyph(font_ptr.txt[c]).cache_index;
+
+      fontscalebias& fsb = library::get().get_font_data(datapos);
+
+      vertscalebias.push_back(mm::vec4(fsb.vertscalebias.xy, fsb.vertscalebias.zw + pos.xy));
+      texscalebias.push_back(fsb.texscalebias);
+    }
+  }
+
+  library::get().update_scalebias( FONT_VERTSCALEBIAS, vertscalebias );
+  library::get().update_scalebias( FONT_TEXSCALEBIAS, texscalebias );
+
+  glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, vertscalebias.size() );
+
+  glBindVertexArray( 0 );
+
+  glUseProgram(0);
+
+  glDisable( GL_BLEND );
+  //glEnable( GL_DEPTH_TEST );
+  //glEnable( GL_CULL_FACE );
+
+  vertscalebias.clear();
+  texscalebias.clear();
+  font_ptr.txt.clear();
+}
