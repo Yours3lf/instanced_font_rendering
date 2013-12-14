@@ -5,6 +5,7 @@ This is a tiny font rendering library originally
 based on Shikoba. ( https://github.com/Queatz/Shikoba )
 
 Depends on libmymath. ( https://github.com/Yours3lf/libmymath )
+
 Depends on Freetype. ( http://www.freetype.org/ )
 
 The demo needs SFML ( http://sfml-dev.org/ ) and 
