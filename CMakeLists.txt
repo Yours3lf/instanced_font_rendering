@@ -1,9 +1,5 @@
 #cmake ver req
 cmake_minimum_required(VERSION 2.8)
-
-if(UNIX)
-	add_subdirectory(precompile)
-endif()
 	
 set(project_name instanced_font_rendering)
 
@@ -70,28 +66,5 @@ endif()
 	
 #adding the project's exe
 add_executable(${project_name} main font)
-
-if(UNIX)
-	add_precompiled_header(${project_name} #add precompiled headers
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_common.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_vec2_impl.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_vec3_impl.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_vec4_impl.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/includes/vec2_swizzle_declarations.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/includes/vec3_swizzle_declarations.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/includes/vec4_swizzle_declarations.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_vec_swizzle_out.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_vec_func.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_mat2_impl.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_mat3_impl.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_mat4_impl.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_mat_func.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_util.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_frame.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_camera.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_matrix_stack.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mm_pipeline.h
-	${CMAKE_SOURCE_DIR}/external/include/mymath/mymat.h)
-endif()
 
 target_link_libraries(${project_name} ${${project_name}_external_libs})

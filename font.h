@@ -23,8 +23,8 @@ struct fontscalebias
   mm::vec4 vertscalebias;
   mm::vec4 texscalebias;
 
-  fontscalebias( mm::vec2 vertscale, mm::vec2 vertbias, mm::vec2 texscale, mm::vec2 texbias ) : 
-  vertscalebias(mm::vec4(vertscale, vertbias)), texscalebias(mm::vec4(texscale, texbias)) {}
+  fontscalebias( mm::vec2 vertscale, mm::vec2 vertbias, mm::vec2 texscale, mm::vec2 texbias ) :
+    vertscalebias( mm::vec4( vertscale, vertbias ) ), texscalebias( mm::vec4( texscale, texbias ) ) {}
 };
 
 class library
@@ -44,34 +44,70 @@ class library
     GLuint the_shader; //shader program
     bool is_set_up;
 
-    void* get_library(){ return the_library; }
-    GLuint& get_shader(){ return the_shader; } //load shader externally
-    mm::uvec2 get_texsize(){ return texsize; }
-    mm::uvec2& get_texture_pen(){ return texture_pen; }
-    GLint& get_tex_row_h(){ return texture_row_h; }
-    GLuint get_tex(){ return tex; }
-    size_t get_font_data_size(){ return font_data.size(); }
-    fontscalebias& get_font_data( unsigned int i ){ return font_data[i]; }
+    void* get_library()
+    {
+      return the_library;
+    }
+    GLuint& get_shader()
+    {
+      return the_shader;  //load shader externally
+    }
+    mm::uvec2 get_texsize()
+    {
+      return texsize;
+    }
+    mm::uvec2& get_texture_pen()
+    {
+      return texture_pen;
+    }
+    GLint& get_tex_row_h()
+    {
+      return texture_row_h;
+    }
+    GLuint get_tex()
+    {
+      return tex;
+    }
+    size_t get_font_data_size()
+    {
+      return font_data.size();
+    }
+    fontscalebias& get_font_data( unsigned int i )
+    {
+      return font_data[i];
+    }
 
     void set_up();
     void destroy();
 
-    void bind_shader(){ glUseProgram( the_shader ); }
-    void bind_texture(){ glBindTexture( GL_TEXTURE_RECTANGLE, tex );}
-    void bind_vao(){ glBindVertexArray( vao ); }
+    void bind_shader()
+    {
+      glUseProgram( the_shader );
+    }
+    void bind_texture()
+    {
+      glBindTexture( GL_TEXTURE_RECTANGLE, tex );
+    }
+    void bind_vao()
+    {
+      glBindVertexArray( vao );
+    }
 
     template< class t >
     void update_scalebias( unsigned int i, const t& tt )
-    { 
-      glBindBuffer( GL_ARRAY_BUFFER, vbos[i] ); 
-      
-      if(tt.size() > 0) 
-        glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec4 ) * tt.size(), &tt[0], GL_DYNAMIC_DRAW ); 
+    {
+      glBindBuffer( GL_ARRAY_BUFFER, vbos[i] );
+
+      if( tt.size() > 0 )
+        glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec4 ) * tt.size(), &tt[0], GL_DYNAMIC_DRAW );
     }
 
     void expand_tex();
 
-    void add_font_data( const fontscalebias& fd ){ font_data.push_back(fd); }
+    void add_font_data( const fontscalebias& fd )
+    {
+      font_data.push_back( fd );
+    }
   protected:
     library(); //singleton
     library( const library& );
@@ -110,7 +146,10 @@ class font_inst
 
         void set_size( unsigned int val );
         void load_glyph( unsigned int val );
-        unsigned int get_size(){ return size; }
+        unsigned int get_size()
+        {
+          return size;
+        }
         glyph& get_glyph( uint32_t i );
         float advance( const uint32_t prev, const uint32_t next = 0 );
         float height();
@@ -121,11 +160,14 @@ class font_inst
         face();
         face( const std::string& filename, unsigned int index = 0 );
         ~face();
-    } *the_face;
+    }* the_face;
     std::wstring txt;
 
     font_inst() : the_face( 0 ) {}
-    ~font_inst(){ delete the_face; }
+    ~font_inst()
+    {
+      delete the_face;
+    }
 };
 
 class font
@@ -150,8 +192,14 @@ class font
 
     void resize( mm::uvec2 ss );
 
-    void destroy(){ library::get().destroy(); }
-    GLuint& get_shader(){ return library::get().get_shader(); }
+    void destroy()
+    {
+      library::get().destroy();
+    }
+    GLuint& get_shader()
+    {
+      return library::get().get_shader();
+    }
 
     static font& get()
     {

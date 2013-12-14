@@ -153,6 +153,7 @@ int main( int argc, char** argv )
   font::get().load_font( "../resources/font.ttf", instance, 22 );
 
   std::wstring text;
+
   //text = L"hello world\n";
   for( int c = 0; c < 32; ++c )
     text += L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
@@ -161,34 +162,35 @@ int main( int argc, char** argv )
    * Handle events
    */
 
-  bool run;
+  bool run = true;
 
   auto event_handler = [&]( const sf::Event & ev )
   {
     switch( ev.type )
     {
       case sf::Event::TextEntered:
-      {
-        if( ev.text.unicode >= 32 && ev.text.unicode <= 127 )
-          text += ev.text.unicode;
-        break;
-      }
+        {
+          if( ev.text.unicode >= 32 && ev.text.unicode <= 127 )
+            text += ev.text.unicode;
+
+          break;
+        }
       case sf::Event::KeyPressed:
-      {
-        if( ev.key.code == sf::Keyboard::Delete )
-          if( !text.empty() )
-            text.pop_back();
+        {
+          if( ev.key.code == sf::Keyboard::Delete )
+            if( !text.empty() )
+              text.erase( --text.end() );
 
-        if( ev.key.code == sf::Keyboard::BackSpace )
-          if( !text.empty() )
-            text.pop_back();
+          if( ev.key.code == sf::Keyboard::BackSpace )
+            if( !text.empty() )
+              text.erase( --text.end() );
 
-        if( ev.key.code == sf::Keyboard::Return )
-          text += L"\n";
+          if( ev.key.code == sf::Keyboard::Return )
+            text += L"\n";
 
-        if( ev.key.code == sf::Keyboard::Escape )
-          run = false;
-      }
+          if( ev.key.code == sf::Keyboard::Escape )
+            run = false;
+        }
       default:
         break;
     }
@@ -235,11 +237,11 @@ int main( int argc, char** argv )
 
       string ttl = title;
 
-      ss << " - FPS: " << fps 
+      ss << " - FPS: " << fps
          << " - Time: " << ( float ) timepassed / ( float ) frame_count;
 
       ttl += ss.str();
-      ss.str("");
+      ss.str( "" );
 
       the_window.setTitle( ttl );
 
@@ -255,7 +257,7 @@ int main( int argc, char** argv )
   return 0;
 }
 
-void compile_shader( const char* text, const GLuint& program, const GLenum& type ) 
+void compile_shader( const char* text, const GLuint& program, const GLenum& type )
 {
   GLchar infolog[INFOLOG_SIZE];
 
@@ -307,9 +309,9 @@ void link_shader( const GLuint& shader_program )
 void load_shader( GLuint& program, const GLenum& type, const string& filename )
 {
   ifstream f( filename );
-	  
+
   if( !f ) cerr << "Couldn't load shader: " << filename << endl;
-	  
+
   string str( ( istreambuf_iterator<char>( f ) ),
               istreambuf_iterator<char>() );
 

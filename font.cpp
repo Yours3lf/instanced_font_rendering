@@ -105,13 +105,13 @@ void library::set_up()
   glGenBuffers( 1, &vbos[FONT_VERTSCALEBIAS] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_VERTSCALEBIAS] );
   glEnableVertexAttribArray( FONT_VERTSCALEBIAS );
-  glVertexAttribPointer( FONT_VERTSCALEBIAS, 4, GL_FLOAT, false, sizeof(mm::vec4), 0 );
+  glVertexAttribPointer( FONT_VERTSCALEBIAS, 4, GL_FLOAT, false, sizeof( mm::vec4 ), 0 );
   glVertexAttribDivisor( FONT_VERTSCALEBIAS, 1 );
 
   glGenBuffers( 1, &vbos[FONT_TEXSCALEBIAS] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TEXSCALEBIAS] );
   glEnableVertexAttribArray( FONT_TEXSCALEBIAS );
-  glVertexAttribPointer( FONT_TEXSCALEBIAS, 4, GL_FLOAT, false, sizeof(mm::vec4), 0 );
+  glVertexAttribPointer( FONT_TEXSCALEBIAS, 4, GL_FLOAT, false, sizeof( mm::vec4 ), 0 );
   glVertexAttribDivisor( FONT_TEXSCALEBIAS, 1 );
 
   glGenBuffers( 1, &vbos[FONT_FACE] );
@@ -173,7 +173,7 @@ void library::expand_tex()
   }
 }
 
-font_inst::face::face() : size( 0 ), the_face( 0 ), glyphs(0){}
+font_inst::face::face() : size( 0 ), the_face( 0 ), glyphs( 0 ) {}
 
 font_inst::face::face( const std::string& filename, unsigned int index )
 {
@@ -207,7 +207,7 @@ void font_inst::face::set_size( unsigned int val )
 
 void font_inst::face::load_glyph( unsigned int val )
 {
-  if( (*glyphs)[size].count( val ) == 0 && the_face )
+  if( ( *glyphs )[size].count( val ) == 0 && the_face )
   {
     FT_Error error;
 
@@ -273,7 +273,7 @@ void font_inst::face::load_glyph( unsigned int val )
       glPixelStorei( GL_UNPACK_ALIGNMENT, uplast );
     }
 
-    glyph* g = &(*glyphs)[size][val];
+    glyph* g = &( *glyphs )[size][val];
 
     g->glyphid = FT_Get_Char_Index( ( FT_Face )the_face, ( const FT_ULong )val );
 
@@ -307,11 +307,11 @@ float font_inst::face::advance( const uint32_t prev, const uint32_t next )
     {
       FT_Vector kern;
       FT_Get_Kerning( ( FT_Face )the_face, prev, next, FT_KERNING_DEFAULT, &kern );
-      return ( float )( (*glyphs)[size][prev].advance.x >> 6 ) + ( float )( kern.x >> 6 );
+      return ( float )( ( *glyphs )[size][prev].advance.x >> 6 ) + ( float )( kern.x >> 6 );
     }
     else
     {
-      return ( float )( (*glyphs)[size][prev].advance.x >> 6 );
+      return ( float )( ( *glyphs )[size][prev].advance.x >> 6 );
     }
   }
   else
@@ -358,7 +358,7 @@ float font_inst::face::descender()
 
 glyph& font_inst::face::get_glyph( uint32_t i )
 {
-  return (*glyphs)[size][i];
+  return ( *glyphs )[size][i];
 }
 
 void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned int size )
@@ -374,7 +374,7 @@ void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned
   std::wstring cachestring = L"0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"";
 
   std::for_each( cachestring.begin(), cachestring.end(),
-                  [&]( wchar_t & c )
+                 [&]( wchar_t & c )
   {
     font_ptr.the_face->load_glyph( c );
   } );
@@ -387,17 +387,17 @@ void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned
 
   for( unsigned int c = 0; c < numofchars; c++ )
   {
-    auto& g = font_ptr.the_face->get_glyph(cachestring[c]);
+    auto& g = font_ptr.the_face->get_glyph( cachestring[c] );
     g.cache_index = fdsize + c;
 
-    mm::vec2 vertbias = mm::vec2(g.offset_x - 0.5f, -0.5f - ( g.h - g.offset_y ));
-    mm::vec2 vertscale = mm::vec2(g.offset_x + g.w + 0.5f, 0.5f + g.h - ( g.h - g.offset_y )) - vertbias;
+    mm::vec2 vertbias = mm::vec2( g.offset_x - 0.5f, -0.5f - ( g.h - g.offset_y ) );
+    mm::vec2 vertscale = mm::vec2( g.offset_x + g.w + 0.5f, 0.5f + g.h - ( g.h - g.offset_y ) ) - vertbias;
 
     //texcoords
-    mm::vec2 texbias = mm::vec2(g.texcoords[0], g.texcoords[1]);
-    mm::vec2 texscale = mm::vec2(g.texcoords[2], g.texcoords[3]) - texbias;
+    mm::vec2 texbias = mm::vec2( g.texcoords[0], g.texcoords[1] );
+    mm::vec2 texscale = mm::vec2( g.texcoords[2], g.texcoords[3] ) - texbias;
 
-    library::get().add_font_data(fontscalebias(vertscale, vertbias, texscale, texbias));
+    library::get().add_font_data( fontscalebias( vertscale, vertbias, texscale, texbias ) );
   }
 
   resize( screensize );
@@ -474,19 +474,19 @@ void font::render( font_inst& font_ptr, mm::uvec2 pos )
         xx += font_ptr.the_face->advance( 63, font_ptr.txt[c] );
       }
     }
-    
+
     if( c < font_ptr.txt.size() )
     {
       unsigned int finalx = xx;
 
       mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
 
-      unsigned int datapos = font_ptr.the_face->get_glyph(font_ptr.txt[c]).cache_index;
+      unsigned int datapos = font_ptr.the_face->get_glyph( font_ptr.txt[c] ).cache_index;
 
-      fontscalebias& fsb = library::get().get_font_data(datapos);
+      fontscalebias& fsb = library::get().get_font_data( datapos );
 
-      vertscalebias.push_back(mm::vec4(fsb.vertscalebias.xy, fsb.vertscalebias.zw + pos.xy));
-      texscalebias.push_back(fsb.texscalebias);
+      vertscalebias.push_back( mm::vec4( fsb.vertscalebias.xy, fsb.vertscalebias.zw + pos.xy ) );
+      texscalebias.push_back( fsb.texscalebias );
     }
   }
 
@@ -497,7 +497,7 @@ void font::render( font_inst& font_ptr, mm::uvec2 pos )
 
   glBindVertexArray( 0 );
 
-  glUseProgram(0);
+  glUseProgram( 0 );
 
   glDisable( GL_BLEND );
   //glEnable( GL_DEPTH_TEST );
