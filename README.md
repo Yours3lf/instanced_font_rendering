@@ -11,30 +11,30 @@ The demo needs SFML ( http://sfml-dev.org/ ) and
 GLEW ( http://glew.sourceforge.net/ ) to run.
 
 For usage example see main.cpp
-
-Building:
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release .. 
-make
-
+ 
+Building: 
+mkdir build 
+cd build 
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make 
+ 
 Running:
-./instanced_font_rendering
+./instanced_font_rendering 
 
 Please note that you need to provide a font file here: 
-resources/font.ttf
+resources/font.ttf 
 
-Performance of the demo on my PC (A8-4500m apu): 1.06-1.09 ms
+Performance of the demo on my PC (A8-4500m apu): 1.06-1.09 ms 
 
-In visual studio set build type to Release to enjoy full speed.
-In visual studio set the instance font rendering project to the
+In visual studio set build type to Release to enjoy full speed. 
+In visual studio set the instance font rendering project to the 
 default startup project to be able to debug it.
 
-Example:
-<code>
-//load in the shaders with your method, get_shader() gives you a ref to the shader program
-load_shader( font::get().get_shader(), GL_VERTEX_SHADER, "../shaders/font/font.vs" );
-load_shader( font::get().get_shader(), GL_FRAGMENT_SHADER, "../shaders/font/font.ps" );
+Example: 
+```c++ 
+//load in the shaders with your method, get_shader() gives you a ref to the shader program 
+load_shader( font::get().get_shader(), GL_VERTEX_SHADER, "../shaders/font/font.vs" ); 
+load_shader( font::get().get_shader(), GL_FRAGMENT_SHADER, "../shaders/font/font.ps" ); 
 
 uvec2 screen = uvec2( 1280, 720 );
 
@@ -61,4 +61,4 @@ while(true) //your ordinary rendering loop
   //...
   swap_buffers();
 }
-</code>
+```
