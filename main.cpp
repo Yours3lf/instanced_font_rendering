@@ -150,7 +150,8 @@ int main( int argc, char** argv )
 
   font_inst instance;
   font::get().resize( screen );
-  font::get().load_font( "../resources/font.ttf", instance, 22 );
+  int size = 22;
+  font::get().load_font( "../resources/font.ttf", instance, size );
 
   std::wstring text;
 
@@ -168,6 +169,11 @@ int main( int argc, char** argv )
   {
     switch( ev.type )
     {
+      case sf::Event::Closed:
+        {
+          run = false;
+          break;
+        }
       case sf::Event::TextEntered:
         {
           if( ev.text.unicode >= 32 && ev.text.unicode <= 127 )
@@ -190,6 +196,21 @@ int main( int argc, char** argv )
 
           if( ev.key.code == sf::Keyboard::Escape )
             run = false;
+
+          if( ev.key.code == sf::Keyboard::Add )
+          {
+            ++size;
+            font::get().set_size( instance, size );
+          }
+
+          if( ev.key.code == sf::Keyboard::Subtract )
+          {
+            if( size > 1 )
+            {
+              --size;
+              font::get().set_size( instance, size );
+            }
+          }
         }
       default:
         break;
@@ -210,23 +231,13 @@ int main( int argc, char** argv )
   {
     while( the_window.pollEvent( the_event ) )
     {
-      if( the_event.type == sf::Event::Closed ||
-          (
-            the_event.type == sf::Event::KeyPressed &&
-            the_event.key.code == sf::Keyboard::Escape
-          )
-        )
-      {
-        run = false;
-      }
-
       event_handler( the_event );
     }
 
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     font::get().add_to_text( instance, text + L"_" );
-    font::get().render( instance );
+    font::get().render( instance, vec3( 0.5, 0.8, 0.5 ), uvec2( 0, 0 ) );
 
     ++frame_count;
 

@@ -12,6 +12,8 @@
 #define FONT_TEXSCALEBIAS 3
 #define FONT_FACE 4
 
+std::wstring cachestring = L"0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
+
 struct glyph
 {
   float offset_x;
@@ -361,46 +363,62 @@ glyph& font_inst::face::get_glyph( uint32_t i )
   return ( *glyphs )[size][i];
 }
 
+bool font_inst::face::has_glyph( uint32_t i )
+{
+  try
+  {
+    ( *glyphs ).at( size ).at( i );
+    return true;
+  }
+  catch( ... )
+  {
+    return false;
+  }
+}
+
+void font::set_size( font_inst& font_ptr, unsigned int s )
+{
+  font_ptr.the_face->set_size( s );
+
+  std::for_each( cachestring.begin(), cachestring.end(),
+                 [&]( wchar_t & c )
+  {
+    add_glyph( font_ptr, c );
+  } );
+}
+
+void font::add_glyph( font_inst& font_ptr, uint32_t c )
+{
+  if( font_ptr.the_face->has_glyph( c ) )
+    return;
+
+  font_ptr.the_face->load_glyph( c );
+
+  auto& g = font_ptr.the_face->get_glyph( c );
+
+  g.cache_index = library::get().get_font_data_size();
+
+  mm::vec2 vertbias = mm::vec2( g.offset_x - 0.5f, -0.5f - ( g.h - g.offset_y ) );
+  mm::vec2 vertscale = mm::vec2( g.offset_x + g.w + 0.5f, 0.5f + g.h - ( g.h - g.offset_y ) ) - vertbias;
+
+  //texcoords
+  mm::vec2 texbias = mm::vec2( g.texcoords[0], g.texcoords[1] );
+  mm::vec2 texscale = mm::vec2( g.texcoords[2], g.texcoords[3] ) - texbias;
+
+  library::get().add_font_data( fontscalebias( vertscale, vertbias, texscale, texbias ) );
+}
+
 void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned int size )
 {
   std::cout << "-Loading: " << filename << std::endl;
 
   library::get().set_up();
+  resize( screensize );
 
   //load directly from font
   font_ptr.the_face = new font_inst::face( filename );
-  font_ptr.the_face->set_size( size );
 
-  std::wstring cachestring = L"0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"";
-
-  std::for_each( cachestring.begin(), cachestring.end(),
-                 [&]( wchar_t & c )
-  {
-    font_ptr.the_face->load_glyph( c );
-  } );
-
-  //write_texture_to_file( "font_cache.png", the_lib->tex, GL_TEXTURE_RECTANGLE );
-
-  unsigned int numofchars = cachestring.length();
-
-  unsigned int fdsize = library::get().get_font_data_size();
-
-  for( unsigned int c = 0; c < numofchars; c++ )
-  {
-    auto& g = font_ptr.the_face->get_glyph( cachestring[c] );
-    g.cache_index = fdsize + c;
-
-    mm::vec2 vertbias = mm::vec2( g.offset_x - 0.5f, -0.5f - ( g.h - g.offset_y ) );
-    mm::vec2 vertscale = mm::vec2( g.offset_x + g.w + 0.5f, 0.5f + g.h - ( g.h - g.offset_y ) ) - vertbias;
-
-    //texcoords
-    mm::vec2 texbias = mm::vec2( g.texcoords[0], g.texcoords[1] );
-    mm::vec2 texscale = mm::vec2( g.texcoords[2], g.texcoords[3] ) - texbias;
-
-    library::get().add_font_data( fontscalebias( vertscale, vertbias, texscale, texbias ) );
-  }
-
-  resize( screensize );
+  set_size( font_ptr, size );
 }
 
 void font::resize( mm::uvec2 ss )
@@ -409,7 +427,7 @@ void font::resize( mm::uvec2 ss )
   font_frame.set_ortographic( 0.0f, ( float )ss.x, 0.0f, ( float )ss.y, 0.0f, 1.0f );
 }
 
-void font::render( font_inst& font_ptr, mm::uvec2 pos )
+void font::render( font_inst& font_ptr, mm::vec3 color, mm::uvec2 pos )
 {
   //glDisable( GL_CULL_FACE );
   //glDisable( GL_DEPTH_TEST );
@@ -421,6 +439,7 @@ void font::render( font_inst& font_ptr, mm::uvec2 pos )
   //mvp is now only the projection matrix
   mm::mat4 mat = font_frame.projection_matrix;
   glUniformMatrix4fv( 0, 1, false, &mat[0].x );
+  glUniform3fv( 1, 1, &color.x );
 
   glActiveTexture( GL_TEXTURE0 );
   library::get().bind_texture();
@@ -451,7 +470,7 @@ void font::render( font_inst& font_ptr, mm::uvec2 pos )
       ++c;
     }
 
-    while( font_ptr.txt[c] == L'\n' && font_ptr.txt.size() - 1 )
+    while( font_ptr.txt[c] == L'\n' && c < font_ptr.txt.size() - 1 )
     {
       yy += font_ptr.the_face->get_size();
       xx = pos.x;
@@ -480,6 +499,8 @@ void font::render( font_inst& font_ptr, mm::uvec2 pos )
       unsigned int finalx = xx;
 
       mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
+
+      add_glyph( font_ptr, font_ptr.txt[c] );
 
       unsigned int datapos = font_ptr.the_face->get_glyph( font_ptr.txt[c] ).cache_index;
 

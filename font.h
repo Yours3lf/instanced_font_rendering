@@ -48,31 +48,38 @@ class library
     {
       return the_library;
     }
+
     GLuint& get_shader()
     {
       return the_shader;  //load shader externally
     }
+
     mm::uvec2 get_texsize()
     {
       return texsize;
     }
+
     mm::uvec2& get_texture_pen()
     {
       return texture_pen;
     }
+
     GLint& get_tex_row_h()
     {
       return texture_row_h;
     }
+
     GLuint get_tex()
     {
       return tex;
     }
+
     size_t get_font_data_size()
     {
       return font_data.size();
     }
-    fontscalebias& get_font_data( unsigned int i )
+
+    fontscalebias& get_font_data( size_t i )
     {
       return font_data[i];
     }
@@ -84,10 +91,12 @@ class library
     {
       glUseProgram( the_shader );
     }
+
     void bind_texture()
     {
       glBindTexture( GL_TEXTURE_RECTANGLE, tex );
     }
+
     void bind_vao()
     {
       glBindVertexArray( vao );
@@ -145,12 +154,15 @@ class font_inst
         std::map< unsigned int, std::map<uint32_t, glyph> >* glyphs;
 
         void set_size( unsigned int val );
-        void load_glyph( unsigned int val );
+        void load_glyph( uint32_t val );
+
         unsigned int get_size()
         {
           return size;
         }
+
         glyph& get_glyph( uint32_t i );
+        bool has_glyph( uint32_t i );
         float advance( const uint32_t prev, const uint32_t next = 0 );
         float height();
         float ascender();
@@ -175,6 +187,8 @@ class font
   private:
     mm::uvec2 screensize;
     mm::frame<float> font_frame;
+
+    void add_glyph( font_inst& f, uint32_t c );
   protected:
     font() {} //singleton
     font( const font& );
@@ -182,7 +196,7 @@ class font
     font& operator=( const font& );
   public:
     void load_font( const std::string& filename, font_inst& font_ptr, unsigned int size );
-    void render( font_inst& font_ptr, mm::uvec2 pos = mm::uvec2() );
+    void render( font_inst& font_ptr, mm::vec3 color = mm::vec3( 1 ), mm::uvec2 pos = mm::uvec2() );
 
     void add_to_text( font_inst& f, const std::wstring& text )
     {
@@ -190,12 +204,15 @@ class font
       f.txt += L"\n";
     }
 
+    void set_size( font_inst& f, unsigned int s );
+
     void resize( mm::uvec2 ss );
 
     void destroy()
     {
       library::get().destroy();
     }
+
     GLuint& get_shader()
     {
       return library::get().get_shader();
