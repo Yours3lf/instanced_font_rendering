@@ -245,7 +245,7 @@ int main( int argc, char** argv )
     glClearColor( 1, 1, 1, 1 );
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-    uvec2 lastpos;
+    vec2 lastpos;
     //lastpos = font::get().add_to_render_list( L"", instance2, vec4( 1, 0, 0, 1 ) );
     //lastpos = font::get().add_to_render_list( L"hello ", instance2, vec4( 1, 0, 0, 1 ), lastpos );
     //lastpos = font::get().add_to_render_list( L"world\n", instance2, vec4( 0, 1, 0, 1 ), lastpos );

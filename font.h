@@ -156,6 +156,10 @@ class font_inst
         friend class library;
       private:
         unsigned int size;
+        float asc;
+        float desc;
+        float h;
+        float gap;
         void* the_face; //FT_Face
         std::map< unsigned int, std::map<uint32_t, glyph> >* glyphs;
 
@@ -169,7 +173,8 @@ class font_inst
 
         glyph& get_glyph( uint32_t i );
         bool has_glyph( uint32_t i );
-        float advance( const uint32_t prev, const uint32_t next = 0 );
+        float advance( const uint32_t current );
+        float kerning( const uint32_t prev, const uint32_t next = 0 );
         float height();
         float linegap();
         float ascender();
@@ -202,7 +207,7 @@ class font
     font& operator=( const font& );
   public:
     void load_font( const std::string& filename, font_inst& font_ptr, unsigned int size );
-    mm::uvec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::uvec2 pos = mm::uvec2(), float line_height = 1 );
+    mm::vec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::vec2 pos = mm::vec2(), float line_height = 1 );
     void render();
 
     void set_size( font_inst& f, unsigned int s );

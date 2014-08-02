@@ -24,7 +24,6 @@ struct glyph
   float w;
   float h;
   float texcoords[4];
-  FT_Glyph_Metrics metrics;
   FT_Vector advance;
   FT_UInt glyphid;
   unsigned int cache_index;
@@ -160,8 +159,8 @@ bool library::expand_tex()
     GLubyte* buf = new GLubyte[texsize.x * texsize.y];
     memset( buf, 0, texsize.x * texsize.y * sizeof( GLubyte ) );
 
-    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
     glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
     glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
     glTexParameteri( GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE );
@@ -207,6 +206,13 @@ font_inst::face::face( const std::string& filename, unsigned int index )
   FT_Error error;
   error = FT_New_Face( ( FT_Library )library::get().get_library(), filename.c_str(), index, ( FT_Face* )&the_face );
 
+  FT_Matrix matrix = { (int)((1.0 / 64.0f) * 0x10000L),
+                       (int)((0.0)         * 0x10000L),
+                       (int)((0.0)         * 0x10000L),
+                       (int)((1.0)         * 0x10000L) };
+  FT_Select_Charmap( *( FT_Face* )&the_face, FT_ENCODING_UNICODE );
+  FT_Set_Transform( *( FT_Face* )&the_face, &matrix, NULL );
+
   glyphs = new std::map< unsigned int, std::map<uint32_t, glyph> >();
 
   if( error )
@@ -228,7 +234,14 @@ void font_inst::face::set_size( unsigned int val )
   if( the_face )
   {
     size = val;
-    FT_Set_Char_Size( ( FT_Face )the_face, size * 64.0f, size * 64.0f, 0.0f, 0.0f );
+
+    FT_Set_Char_Size( ( FT_Face )the_face, size * 100.0f * 64.0f, 0.0f, 72 * 64.0f, 72 );
+    asc = ( ( ( FT_Face )the_face )->size->metrics.ascender / 64.0f ) / 100.0f;
+    desc = ( ( ( FT_Face )the_face )->size->metrics.descender / 64.0f ) / 100.0f;
+    h = ( ( ( FT_Face )the_face )->size->metrics.height / 64.0f ) / 100.0f;
+    gap = h - asc + desc;
+
+    FT_Set_Char_Size( ( FT_Face )the_face, size * 64.0f, 0.0f, 72 * 64.0f, 72 );
   }
 }
 
@@ -238,7 +251,7 @@ bool font_inst::face::load_glyph( unsigned int val )
   {
     FT_Error error;
 
-    error = FT_Load_Char( ( FT_Face )the_face, ( const FT_UInt )val, FT_LOAD_DEFAULT | FT_LOAD_IGNORE_TRANSFORM | FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT );
+    error = FT_Load_Char( ( FT_Face )the_face, ( const FT_UInt )val, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT );
 
     if( error )
     {
@@ -307,10 +320,7 @@ bool font_inst::face::load_glyph( unsigned int val )
     glyph* g = &( *glyphs )[size][val];
 
     g->glyphid = FT_Get_Char_Index( ( FT_Face )the_face, ( const FT_ULong )val );
-
-    g->metrics = ( ( FT_Face )the_face )->glyph->metrics;
-    g->advance = ( ( FT_Face )the_face )->glyph->advance;
-
+    
     g->offset_x = ( float )( ( FT_Face )the_face )->glyph->bitmap_left;
     g->offset_y = ( float )( ( FT_Face )the_face )->glyph->bitmap_top;
     g->w = ( float )bitmap->width;
@@ -327,71 +337,57 @@ bool font_inst::face::load_glyph( unsigned int val )
     {
       texrowh = bitmap->rows;
     }
+
+    g->advance = ( ( FT_Face )the_face )->glyph->advance;
   }
   
   return true;
 }
 
-float font_inst::face::advance( const uint32_t prev, const uint32_t next )
+float font_inst::face::kerning( const uint32_t prev, const uint32_t next )
 {
   if( the_face )
   {
     if( next && FT_HAS_KERNING( ( ( FT_Face )the_face ) ) )
     {
       FT_Vector kern;
-      FT_Get_Kerning( ( FT_Face )the_face, prev, next, FT_KERNING_DEFAULT, &kern );
-      return ( float )( ( *glyphs )[size][prev].advance.x >> 6 ) + ( float )( kern.x >> 6 );
+      FT_Get_Kerning( ( FT_Face )the_face, prev, next, FT_KERNING_UNFITTED, &kern );
+      return ( kern.x / (64.0f*64.0f) );
     }
     else
     {
-      return ( float )( ( *glyphs )[size][prev].advance.x >> 6 );
+      return 0;
     }
   }
   else
   {
     return 0;
   }
+}
+
+float font_inst::face::advance( const uint32_t current )
+{
+  return ( ( *glyphs )[size][current].advance.x / 64.0f );
 }
 
 float font_inst::face::height()
 {
-  if( the_face )
-  {
-    return ( float )( ( ( FT_Face )the_face )->size->metrics.height >> 6 );
-  }
-  else
-  {
-    return 0;
-  }
+  return h;
 }
 
 float font_inst::face::linegap()
 {
-  return height() - ascender() + descender();
+  return gap;
 }
 
 float font_inst::face::ascender()
 {
-  if( the_face )
-  {
-    return ( float )( ( ( FT_Face )the_face )->size->metrics.ascender >> 6 );
-  }
-  else
-  {
-    return 0;
-  }
+  return asc;
 }
 
 float font_inst::face::descender()
 {
-  if( the_face )
-  {
-    return ( float )( ( ( FT_Face )the_face )->size->metrics.descender >> 6 );
-  }
-  else
-  {
-    return 0;
-  }
+  return desc;
 }
 
 glyph& font_inst::face::get_glyph( uint32_t i )
@@ -469,7 +465,7 @@ void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned
   resize( screensize );
 
   //load directly from font
-  font_ptr.the_face = new font_inst::face( filename );
+  font_ptr.the_face = new font_inst::face( filename, 0 );
 
   set_size( font_ptr, size );
 
@@ -486,10 +482,10 @@ static std::vector<mm::vec4> vertscalebias;
 static std::vector<mm::vec4> texscalebias;
 static std::vector<mm::vec4> fontcolor;
 
-mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::uvec2 pos, float line_height )
+mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::vec2 pos, float line_height )
 {
-  unsigned int yy = pos.y;
-  unsigned int xx = pos.x;
+  float yy = pos.y;
+  float xx = pos.x;
 
   float vert_advance = font_ptr.the_face->height() - font_ptr.the_face->linegap();
   vert_advance *= line_height;
@@ -508,12 +504,12 @@ mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr
 
     if( c > 0 && txt[c] != L'\n' )
     {
-      xx += font_ptr.the_face->advance( txt[c - 1], txt[c] );
+      xx += font_ptr.the_face->kerning( txt[c - 1], txt[c] );
     }
 
     if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' )
     {
-      unsigned int finalx = xx;
+      float finalx = xx;
 
       mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
 
@@ -527,19 +523,13 @@ mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr
       texscalebias.push_back( fsb.texscalebias );
       fontcolor.push_back( color );
     }
-  }
 
-  int current = txt.size()-1;
-  int prev = txt.size()-2;
-
-  if( current < txt.size() && current > -1 && txt[current] != L'\n' )
-  {
-    xx += font_ptr.the_face->advance( txt[prev], txt[current] );
+    xx += font_ptr.the_face->advance( txt[c] );
   }
 
   yy -= vert_advance;
 
-  return mm::uvec2( xx, yy );
+  return mm::vec2( xx, yy );
 }
 
 void font::render()
