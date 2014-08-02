@@ -51,7 +51,7 @@ font::get().load_font( "../resources/font.ttf", //where your font is
                        22 ); //the font size
 
 vec3 color = vec3( 0.5, 0.8, 0.5 ); //rgb [0...1]
-uvec2 pos = uvec2( 10, 20 ); //in pixels
+vec2 pos = vec2( 10, 20 ); //in pixels
 
 std::wstring text = L"hello world\n"; //what to display
 
@@ -62,8 +62,12 @@ while(true) //your ordinary rendering loop
   //...
   //optionally bind fbo here to render to texture
   //...
-  font::get().add_to_text( instance, text + L"_" ); //feed the font
-  font::get().render( instance, color, pos );
+  vec2 lastpos;
+  lastpos = font::get().add_to_render_list( text + L"_", instance, vec4(color, 1), pos  ); //feed the font
+  lastpos = font::get().add_to_render_list( L"blablabla", instance, vec4(1, 0, 0, 1), lastpos  ); //feed the font
+  
+  //kick off all fonts, all sizes, all colors, all positions at ONCE (ie. you should do this once per frame)
+  font::get().render(); 
   //...
   swap_buffers();
 }
