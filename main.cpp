@@ -107,7 +107,7 @@ int main( int argc, char** argv )
     exit( 1 );
   }
 
-  the_window.setVerticalSyncEnabled( true );
+  //the_window.setVerticalSyncEnabled( true );
 
   GLenum glew_error = glewInit();
 
@@ -156,10 +156,10 @@ int main( int argc, char** argv )
   font_inst instance;
   font::get().resize( screen );
   int size = 22;
-  font::get().load_font( "../resources/font.otf", instance, size );
+  font::get().load_font( "../resources/font.ttf", instance, size );
 
   font_inst instance2;
-  font::get().load_font( "../resources/font2.ttf", instance2, size+2 );
+  font::get().load_font( "../resources/font2.ttf", instance2, size );
 
   std::wstring text;
 
@@ -245,10 +245,10 @@ int main( int argc, char** argv )
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     uvec2 lastpos;
-    lastpos = font::get().add_to_render_list( L"", instance, vec4( 1, 0, 0, 1 ) );
-    lastpos = font::get().add_to_render_list( L"hello ", instance, vec4( 1, 0, 0, 1 ) );
-    lastpos = font::get().add_to_render_list( L"world\n", instance, vec4( 0, 1, 0, 1 ), lastpos );
-    lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance2, vec4( 0.5, 0.8, 0.5, 1 ), uvec2( 0, lastpos.y ) );
+    lastpos = font::get().add_to_render_list( L"", instance2, vec4( 1, 0, 0, 1 ) );
+    lastpos = font::get().add_to_render_list( L"hello ", instance2, vec4( 1, 0, 0, 1 ), lastpos, 1.25 );
+    lastpos = font::get().add_to_render_list( L"world\n", instance2, vec4( 0, 1, 0, 1 ), lastpos, 1.25 );
+    lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( 1 ), uvec2( 0, lastpos.y ), 1.25 );
     font::get().render();
 
     ++frame_count;

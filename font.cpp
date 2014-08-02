@@ -56,8 +56,6 @@ library::~library()
 {
   if( the_library )
   {
-    delete_glyphs();
-
     FT_Error error;
     error = FT_Done_FreeType( ( FT_Library )the_library );
 
@@ -367,6 +365,11 @@ float font_inst::face::height()
   }
 }
 
+float font_inst::face::linegap()
+{
+  return height() - ascender() + descender();
+}
+
 float font_inst::face::ascender()
 {
   if( the_face )
@@ -483,12 +486,15 @@ static std::vector<mm::vec4> vertscalebias;
 static std::vector<mm::vec4> texscalebias;
 static std::vector<mm::vec4> fontcolor;
 
-mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::uvec2 pos )
+mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::uvec2 pos, float line_height )
 {
   unsigned int yy = pos.y;
   unsigned int xx = pos.x;
 
-  yy += font_ptr.the_face->get_size();
+  float vert_advance = font_ptr.the_face->height() - font_ptr.the_face->linegap();
+  vert_advance *= line_height;
+
+  yy += vert_advance;
 
   for( int c = 0; c < int( txt.size() ); c++ )
   {
@@ -496,7 +502,7 @@ mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr
 
     if( txt[c] == L'\n' )
     {
-      yy += font_ptr.the_face->get_size();
+      yy += vert_advance;
       xx = pos.x;
     }
 
@@ -573,7 +579,7 @@ mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr
     }
   }
 
-  yy -= font_ptr.the_face->get_size();
+  yy -= vert_advance;
 
   return mm::uvec2( xx, yy );
 }
