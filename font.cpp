@@ -5,7 +5,7 @@
 #include "ft2build.h"
 #include FT_FREETYPE_H
 
-#define MAX_TEX_SIZE 2048
+#define MAX_TEX_SIZE 8192
 #define MIN_TEX_SIZE 128
 
 #define FONT_VERTEX 0
@@ -56,6 +56,8 @@ library::~library()
 {
   if( the_library )
   {
+    delete_glyphs();
+
     FT_Error error;
     error = FT_Done_FreeType( ( FT_Library )the_library );
 
@@ -63,6 +65,20 @@ library::~library()
     {
       std::cerr << "Error destroying the freetype library." << std::endl;
     }
+  }
+}
+
+void library::delete_glyphs()
+{
+  texture_pen = mm::uvec2(1);
+  texture_row_h = 0;
+  texsize = mm::uvec2(0);
+
+  font_data.clear();
+
+  for( auto& c : instances )
+  {
+    (*c->the_face->glyphs).clear();
   }
 }
 
@@ -134,7 +150,7 @@ void library::set_up()
   is_set_up = true;
 }
 
-void library::expand_tex()
+bool library::expand_tex()
 {
   glBindTexture( GL_TEXTURE_RECTANGLE, tex );
 
@@ -168,9 +184,9 @@ void library::expand_tex()
     int tmp_height = texsize.y;
     texsize.y += MIN_TEX_SIZE;
 
-    if( texsize.y > MAX_TEX_SIZE )
+    if( texsize.y > MAX_TEX_SIZE ) //can't expand tex further
     {
-      texsize.y = MAX_TEX_SIZE;
+      return false;
     }
 
     GLubyte* tmpbuf = new GLubyte[texsize.x * texsize.y];
@@ -182,6 +198,8 @@ void library::expand_tex()
     delete [] buf;
     delete [] tmpbuf;
   }
+
+  return true;
 }
 
 font_inst::face::face() : size( 0 ), the_face( 0 ), glyphs( 0 ) {}
@@ -216,7 +234,7 @@ void font_inst::face::set_size( unsigned int val )
   }
 }
 
-void font_inst::face::load_glyph( unsigned int val )
+bool font_inst::face::load_glyph( unsigned int val )
 {
   if( ( *glyphs )[size].count( val ) == 0 && the_face )
   {
@@ -226,7 +244,7 @@ void font_inst::face::load_glyph( unsigned int val )
 
     if( error )
     {
-      std::cout << "Error loading character: " << ( wchar_t )val << std::endl;
+      std::cerr << "Error loading character: " << ( wchar_t )val << std::endl;
     }
 
     auto texsize = library::get().get_texsize();
@@ -249,7 +267,11 @@ void font_inst::face::load_glyph( unsigned int val )
 
     if( texpen.y + bitmap->rows + 1 > ( int )texsize.y )
     {
-      library::get().expand_tex();
+      if( !library::get().expand_tex() )
+      {
+        //tex expansion unsuccessful
+        return false;
+      }
     }
 
     GLubyte* data;
@@ -308,6 +330,8 @@ void font_inst::face::load_glyph( unsigned int val )
       texrowh = bitmap->rows;
     }
   }
+  
+  return true;
 }
 
 float font_inst::face::advance( const uint32_t prev, const uint32_t next )
@@ -396,12 +420,22 @@ void font::set_size( font_inst& font_ptr, unsigned int s )
   } );
 }
 
-void font::add_glyph( font_inst& font_ptr, uint32_t c )
+void font::add_glyph( font_inst& font_ptr, uint32_t c, int counter )
 {
   if( font_ptr.the_face->has_glyph( c ) )
     return;
 
-  font_ptr.the_face->load_glyph( c );
+  if( !font_ptr.the_face->load_glyph( c ) )
+  {
+    if( counter > 9 ) //at max 10 tries
+    {
+      exit( 1 ); //couldn't get enough memory or something... (extreme case) 
+    }
+
+    library::get().delete_glyphs();
+    add_glyph( font_ptr, c, ++counter );
+    return;
+  }
 
   auto& g = font_ptr.the_face->get_glyph( c );
 
@@ -435,6 +469,8 @@ void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned
   font_ptr.the_face = new font_inst::face( filename );
 
   set_size( font_ptr, size );
+
+  library::get().instances.push_back( &font_ptr );
 }
 
 void font::resize( mm::uvec2 ss )

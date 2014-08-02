@@ -45,6 +45,9 @@ class library
     std::vector<fontscalebias> font_data;
     GLuint the_shader; //shader program
     bool is_set_up;
+    std::vector<font_inst*> instances;
+
+    void delete_glyphs();
 
     void* get_library()
     {
@@ -113,7 +116,7 @@ class library
         glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec4 ) * tt.size(), &tt[0], GL_DYNAMIC_DRAW );
     }
 
-    void expand_tex();
+    bool expand_tex();
 
     void add_font_data( const fontscalebias& fd )
     {
@@ -150,13 +153,14 @@ class font_inst
     class face
     {
         friend class font;
+        friend class library;
       private:
         unsigned int size;
-        void* the_face;
+        void* the_face; //FT_Face
         std::map< unsigned int, std::map<uint32_t, glyph> >* glyphs;
 
         void set_size( unsigned int val );
-        void load_glyph( uint32_t val );
+        bool load_glyph( uint32_t val );
 
         unsigned int get_size()
         {
@@ -189,7 +193,7 @@ class font
     mm::uvec2 screensize;
     mm::frame<float> font_frame;
 
-    void add_glyph( font_inst& f, uint32_t c );
+    void add_glyph( font_inst& f, uint32_t c, int counter = 0 );
   protected:
     font() {} //singleton
     font( const font& );

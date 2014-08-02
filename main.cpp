@@ -164,8 +164,8 @@ int main( int argc, char** argv )
   std::wstring text;
 
   //text = L"hello world\n";
-  //for( int c = 0; c < 32; ++c )
-  //  text += L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
+  for( int c = 0; c < 32; ++c )
+    text += L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
 
   /*
    * Handle events
@@ -208,7 +208,7 @@ int main( int argc, char** argv )
           if( ev.key.code == sf::Keyboard::Add )
           {
             ++size;
-            font::get().set_size( instance, size );
+            font::get().set_size( instance2, size );
           }
 
           if( ev.key.code == sf::Keyboard::Subtract )
@@ -216,7 +216,7 @@ int main( int argc, char** argv )
             if( size > 1 )
             {
               --size;
-              font::get().set_size( instance, size );
+              font::get().set_size( instance2, size );
             }
           }
         }
