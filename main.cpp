@@ -94,6 +94,9 @@ int main( int argc, char** argv )
    * Initialize the OpenGL context
    */
 
+   //screen = uvec2( 1920, 1080 );
+   //fullscreen = true;
+
   sf::Window the_window;
   the_window.create( sf::VideoMode( screen.x > 0 ? screen.x : 1280, screen.y > 0 ? screen.y : 720, 32 ), title, fullscreen ? sf::Style::Fullscreen : sf::Style::Default );
 
@@ -103,6 +106,8 @@ int main( int argc, char** argv )
     the_window.close();
     exit( 1 );
   }
+
+  the_window.setVerticalSyncEnabled( true );
 
   GLenum glew_error = glewInit();
 
@@ -151,13 +156,16 @@ int main( int argc, char** argv )
   font_inst instance;
   font::get().resize( screen );
   int size = 22;
-  font::get().load_font( "../resources/font.ttf", instance, size );
+  font::get().load_font( "../resources/font.otf", instance, size );
+
+  font_inst instance2;
+  font::get().load_font( "../resources/font2.ttf", instance2, size+2 );
 
   std::wstring text;
 
   //text = L"hello world\n";
-  for( int c = 0; c < 32; ++c )
-    text += L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
+  //for( int c = 0; c < 32; ++c )
+  //  text += L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
 
   /*
    * Handle events
@@ -236,8 +244,12 @@ int main( int argc, char** argv )
 
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-    font::get().add_to_text( instance, text + L"_" );
-    font::get().render( instance, vec3( 0.5, 0.8, 0.5 ), uvec2( 0, 0 ) );
+    uvec2 lastpos;
+    lastpos = font::get().add_to_render_list( L"", instance, vec4( 1, 0, 0, 1 ) );
+    lastpos = font::get().add_to_render_list( L"hello ", instance, vec4( 1, 0, 0, 1 ) );
+    lastpos = font::get().add_to_render_list( L"world\n", instance, vec4( 0, 1, 0, 1 ), lastpos );
+    lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance2, vec4( 0.5, 0.8, 0.5, 1 ), uvec2( 0, lastpos.y ) );
+    font::get().render();
 
     ++frame_count;
 

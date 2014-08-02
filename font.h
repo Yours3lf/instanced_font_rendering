@@ -18,6 +18,8 @@ struct glyph;
 class font;
 class font_inst;
 
+#define FONT_LIB_VBO_SIZE 6
+
 struct fontscalebias
 {
   mm::vec4 vertscalebias;
@@ -39,7 +41,7 @@ class library
     GLuint tex; //font texture
     mm::uvec2 texsize;
     GLuint vao; //vao
-    GLuint vbos[5]; //vbos
+    GLuint vbos[FONT_LIB_VBO_SIZE]; //vbos
     std::vector<fontscalebias> font_data;
     GLuint the_shader; //shader program
     bool is_set_up;
@@ -103,7 +105,7 @@ class library
     }
 
     template< class t >
-    void update_scalebias( unsigned int i, const t& tt )
+    void update_scalebiascolor( unsigned int i, const t& tt )
     {
       glBindBuffer( GL_ARRAY_BUFFER, vbos[i] );
 
@@ -173,7 +175,6 @@ class font_inst
         face( const std::string& filename, unsigned int index = 0 );
         ~face();
     }* the_face;
-    std::wstring txt;
 
     font_inst() : the_face( 0 ) {}
     ~font_inst()
@@ -196,13 +197,8 @@ class font
     font& operator=( const font& );
   public:
     void load_font( const std::string& filename, font_inst& font_ptr, unsigned int size );
-    void render( font_inst& font_ptr, mm::vec3 color = mm::vec3( 1 ), mm::uvec2 pos = mm::uvec2() );
-
-    void add_to_text( font_inst& f, const std::wstring& text )
-    {
-      f.txt += text;
-      f.txt += L"\n";
-    }
+    mm::uvec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::uvec2 pos = mm::uvec2() );
+    void render();
 
     void set_size( font_inst& f, unsigned int s );
 

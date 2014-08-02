@@ -8,6 +8,7 @@ project(${project_name})
 
 #so that it talks to us
 set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_BUILD_TYPE Release)
 
 if(UNIX)
 	add_definitions( "-Wall -Wno-long-long -ansi -pedantic -std=c++0x" )
@@ -61,7 +62,7 @@ endif()
 
 if(WIN32)
 	set(${project_name}_external_libs optimized sfml-window debug sfml-window-d optimized sfml-system debug sfml-system-d 
-	optimized sfml-audio debug sfml-audio-d optimized sfml-graphics debug sfml-graphics-d OpenGL32 GLEW32 freetype2410)
+	optimized sfml-audio debug sfml-audio-d optimized sfml-graphics debug sfml-graphics-d OpenGL32 GLEW32 freetype253)
 endif()
 	
 #adding the project's exe
