@@ -107,7 +107,7 @@ int main( int argc, char** argv )
     exit( 1 );
   }
 
-  //the_window.setVerticalSyncEnabled( true );
+  the_window.setVerticalSyncEnabled( true );
 
   GLenum glew_error = glewInit();
 
@@ -165,7 +165,7 @@ int main( int argc, char** argv )
 
   //text = L"hello world\n";
   for( int c = 0; c < 32; ++c )
-    text += L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
+    text += L" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
 
   /*
    * Handle events
@@ -242,13 +242,29 @@ int main( int argc, char** argv )
       event_handler( the_event );
     }
 
+    glClearColor( 1, 1, 1, 1 );
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     uvec2 lastpos;
-    lastpos = font::get().add_to_render_list( L"", instance2, vec4( 1, 0, 0, 1 ) );
-    lastpos = font::get().add_to_render_list( L"hello ", instance2, vec4( 1, 0, 0, 1 ), lastpos, 1.25 );
-    lastpos = font::get().add_to_render_list( L"world\n", instance2, vec4( 0, 1, 0, 1 ), lastpos, 1.25 );
-    lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( 1 ), uvec2( 0, lastpos.y ), 1.25 );
+    //lastpos = font::get().add_to_render_list( L"", instance2, vec4( 1, 0, 0, 1 ) );
+    //lastpos = font::get().add_to_render_list( L"hello ", instance2, vec4( 1, 0, 0, 1 ), lastpos );
+    //lastpos = font::get().add_to_render_list( L"world\n", instance2, vec4( 0, 1, 0, 1 ), lastpos );
+    //lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( 1 ), uvec2( 0, lastpos.y ) );
+    lastpos = font::get().add_to_render_list( L"Lorem ipsum dolor sit amet, consectetur adipiscing \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"elit. Vestibulum ultrices nibh vitae augue rhoncus, in \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"porta dolor tristique. Donec quam risus, mollis eget \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"mi vel, facilisis consectetur ipsum. Mauris a lacus \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"vel sem commodo aliquet. Sed placerat ultricies \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"augue, vel porttitor dui venenatis in. Vestibulum \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"tortor augue, hendrerit sit amet mauris in, euismod \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"laoreet elit. Nam adipiscing fringilla lobortis. Ut \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"lacinia accumsan sapien sit amet tempus. Quisque et \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"lorem nulla. Sed aliquam pellentesque porttitor. \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"Fusce at dignissim purus. Nunc a augue pulvinar, \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"tincidunt turpis quis, imperdiet turpis. Nullam eget \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"est tempus, pulvinar lectus ut, lacinia est. Proin \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"placerat tristique diam, a porttitor magna lobortis \n", instance, vec4( vec3(0),1 ), lastpos );
+
     font::get().render();
 
     ++frame_count;

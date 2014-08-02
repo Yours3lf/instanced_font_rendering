@@ -15,7 +15,7 @@
 #define FONT_COLOR 4
 #define FONT_FACE 5
 
-std::wstring cachestring = L"0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
+std::wstring cachestring = L" 0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
 
 struct glyph
 {
@@ -508,28 +508,7 @@ mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr
 
     if( c > 0 && txt[c] != L'\n' )
     {
-      if( txt[c] == L' ' )
-      {
-        if( txt[c-1] != L' ')
-        {
-          xx += font_ptr.the_face->advance( txt[c - 1], 63 );
-        }
-        else
-        {
-          xx += font_ptr.the_face->advance( 63, 63 );
-        }
-      }
-      else
-      {
-        if( txt[c - 1] != L' ' )
-        {
-          xx += font_ptr.the_face->advance( txt[c - 1], txt[c] );
-        }
-        else
-        {
-          xx += font_ptr.the_face->advance( 63, txt[c] );
-        }
-      }
+      xx += font_ptr.the_face->advance( txt[c - 1], txt[c] );
     }
 
     if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' )
@@ -555,28 +534,7 @@ mm::uvec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr
 
   if( current < txt.size() && current > -1 && txt[current] != L'\n' )
   {
-    if( txt[current] != L' ' )
-    {
-      if( prev > -1 && txt[prev] != L' ')
-      {
-        xx += font_ptr.the_face->advance( txt[prev], txt[current] );
-      }
-      else
-      {
-        xx += font_ptr.the_face->advance( 63, txt[current] );
-      }
-    }
-    else
-    {
-      if( prev > -1 && txt[prev] != L' ')
-      {
-        xx += font_ptr.the_face->advance( txt[prev], 63 );
-      }
-      else
-      {
-        xx += font_ptr.the_face->advance( 63, 63 );
-      }
-    }
+    xx += font_ptr.the_face->advance( txt[prev], txt[current] );
   }
 
   yy -= vert_advance;
