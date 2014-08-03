@@ -160,6 +160,8 @@ class font_inst
         float desc;
         float h;
         float gap;
+        float upos;
+        float uthick;
         void* the_face; //FT_Face
         std::map< unsigned int, std::map<uint32_t, glyph> >* glyphs;
 
@@ -179,6 +181,8 @@ class font_inst
         float linegap();
         float ascender();
         float descender();
+        float underline_position();
+        float underline_thickness();
       protected:
       public:
         face();
@@ -207,7 +211,7 @@ class font
     font& operator=( const font& );
   public:
     void load_font( const std::string& filename, font_inst& font_ptr, unsigned int size );
-    mm::vec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::vec2 pos = mm::vec2(), float line_height = 1 );
+    mm::vec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::vec2 pos = mm::vec2(), mm::vec4 highlight_color = mm::vec4( 1 ), float line_height = 1 );
     void render();
 
     void set_size( font_inst& f, unsigned int s );

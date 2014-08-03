@@ -15,7 +15,8 @@
 #define FONT_COLOR 4
 #define FONT_FACE 5
 
-std::wstring cachestring = L" 0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
+wchar_t buf[2] = {-1, L'\0'};
+std::wstring cachestring = std::wstring(buf) + L" 0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
 
 struct glyph
 {
@@ -206,6 +207,9 @@ font_inst::face::face( const std::string& filename, unsigned int index )
   FT_Error error;
   error = FT_New_Face( ( FT_Library )library::get().get_library(), filename.c_str(), index, ( FT_Face* )&the_face );
 
+  upos = 0;
+  uthick = 0;
+
   FT_Matrix matrix = { (int)((1.0 / 64.0f) * 0x10000L),
                        (int)((0.0)         * 0x10000L),
                        (int)((0.0)         * 0x10000L),
@@ -240,6 +244,20 @@ void font_inst::face::set_size( unsigned int val )
     desc = ( ( ( FT_Face )the_face )->size->metrics.descender / 64.0f ) / 100.0f;
     h = ( ( ( FT_Face )the_face )->size->metrics.height / 64.0f ) / 100.0f;
     gap = h - asc + desc;
+    
+    upos = std::round( upos / (64.0f*64.0f) * size );
+    
+    if( upos > -2 )
+    {
+      upos = -2;
+    }
+
+    uthick = std::round( uthick / (64.0f*64.0f) * size );
+
+    if( uthick < 1 )
+    {
+      uthick = 1;
+    }
 
     FT_Set_Char_Size( ( FT_Face )the_face, size * 64.0f, 0.0f, 72 * 64.0f, 72 );
   }
@@ -251,11 +269,33 @@ bool font_inst::face::load_glyph( unsigned int val )
   {
     FT_Error error;
 
-    error = FT_Load_Char( ( FT_Face )the_face, ( const FT_UInt )val, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT );
+    FT_GlyphSlot theglyph = FT_GlyphSlot();
 
-    if( error )
+    if( val != wchar_t(-1) )
     {
-      std::cerr << "Error loading character: " << ( wchar_t )val << std::endl;
+      error = FT_Load_Char( ( FT_Face )the_face, ( const FT_UInt )val, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT );
+
+      if( error )
+      {
+        std::cerr << "Error loading character: " << ( wchar_t )val << std::endl;
+      }
+
+      theglyph = ( ( FT_Face )the_face )->glyph;
+    }
+    else
+    {
+      theglyph = new FT_GlyphSlotRec_();
+      theglyph->advance.x = 0;
+      theglyph->advance.y = 0;
+      static unsigned char data[4*4*3] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                                          -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                                          -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                                          -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+      theglyph->bitmap.buffer = data;
+      theglyph->bitmap.rows = 4;
+      theglyph->bitmap.width = 4;
+      theglyph->bitmap_left = 0;
+      theglyph->bitmap_top = 0;
     }
 
     auto texsize = library::get().get_texsize();
@@ -267,7 +307,7 @@ bool font_inst::face::load_glyph( unsigned int val )
       library::get().expand_tex();
     }
 
-    FT_Bitmap* bitmap = &( ( FT_Face )the_face )->glyph->bitmap;
+    FT_Bitmap* bitmap = &theglyph->bitmap;
 
     if( texpen.x + bitmap->width + 1 > ( int )texsize.x )
     {
@@ -321,8 +361,8 @@ bool font_inst::face::load_glyph( unsigned int val )
 
     g->glyphid = FT_Get_Char_Index( ( FT_Face )the_face, ( const FT_ULong )val );
     
-    g->offset_x = ( float )( ( FT_Face )the_face )->glyph->bitmap_left;
-    g->offset_y = ( float )( ( FT_Face )the_face )->glyph->bitmap_top;
+    g->offset_x = ( float )theglyph->bitmap_left;
+    g->offset_y = ( float )theglyph->bitmap_top;
     g->w = ( float )bitmap->width;
     g->h = ( float )bitmap->rows;
 
@@ -338,7 +378,7 @@ bool font_inst::face::load_glyph( unsigned int val )
       texrowh = bitmap->rows;
     }
 
-    g->advance = ( ( FT_Face )the_face )->glyph->advance;
+    g->advance = theglyph->advance;
   }
   
   return true;
@@ -388,6 +428,16 @@ float font_inst::face::ascender()
 float font_inst::face::descender()
 {
   return desc;
+}
+
+float font_inst::face::underline_position()
+{
+  return upos;
+}
+
+float font_inst::face::underline_thickness()
+{
+  return uthick;
 }
 
 glyph& font_inst::face::get_glyph( uint32_t i )
@@ -482,8 +532,43 @@ static std::vector<mm::vec4> vertscalebias;
 static std::vector<mm::vec4> texscalebias;
 static std::vector<mm::vec4> fontcolor;
 
-mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::vec2 pos, float line_height )
+//these special unicode characters denote the text markup begin/end
+// \uE000 == underline begin
+#define FONT_UNDERLINE_BEGIN L'\uE000'
+// \uE001 == underline end
+#define FONT_UNDERLINE_END L'\uE001'
+// \uE002 == overline begin
+#define FONT_OVERLINE_BEGIN L'\uE002'
+// \uE003 == overline end
+#define FONT_OVERLINE_END L'\uE003'
+// \uE004 == strikethrough begin
+#define FONT_STRIKETHROUGH_BEGIN L'\uE004'
+// \uE005 == strikethrough end
+#define FONT_STRIKETHROUGH_END L'\uE005'
+// \uE006 == highlight begin
+#define FONT_HIGHLIGHT_BEGIN L'\uE006'
+// \uE007 == highlight end
+#define FONT_HIGHLIGHT_END L'\uE007'
+
+bool is_special( wchar_t c )
 {
+  return c == FONT_UNDERLINE_BEGIN ||
+         c == FONT_UNDERLINE_END ||
+         c == FONT_OVERLINE_BEGIN ||
+         c == FONT_OVERLINE_END ||
+         c == FONT_STRIKETHROUGH_BEGIN ||
+         c == FONT_STRIKETHROUGH_END ||
+         c == FONT_HIGHLIGHT_BEGIN ||
+         c == FONT_HIGHLIGHT_END;
+}
+
+mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::vec2 pos, mm::vec4 highlight_color, float line_height )
+{
+  static bool underline = false;
+  static bool overline = false;
+  static bool strikethrough = false;
+  static bool highlight = false;
+
   float yy = pos.y;
   float xx = pos.x;
 
@@ -502,21 +587,132 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       xx = pos.x;
     }
 
-    if( c > 0 && txt[c] != L'\n' )
+    if( c > 0 && txt[c] != L'\n' && !is_special(txt[c]) )
     {
       xx += font_ptr.the_face->kerning( txt[c - 1], txt[c] );
     }
 
-    if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' )
+    if( txt[c] == FONT_UNDERLINE_BEGIN )
+      underline = true;
+    else if( txt[c] == FONT_UNDERLINE_END )
+      underline = false;
+    else if( txt[c] == FONT_OVERLINE_BEGIN )
+      overline = true;
+    else if( txt[c] == FONT_OVERLINE_END )
+      overline = false;
+    else if( txt[c] == FONT_STRIKETHROUGH_BEGIN )
+      strikethrough = true;
+    else if( txt[c] == FONT_STRIKETHROUGH_END )
+      strikethrough = false;
+    else if( txt[c] == FONT_HIGHLIGHT_BEGIN )
+      highlight = true;
+    else if( txt[c] == FONT_HIGHLIGHT_END )
+      highlight = false;
+
+    float finalx = xx;
+    mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
+
+    if( highlight )
     {
-      float finalx = xx;
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      fontscalebias& fsb = library::get().get_font_data( datapos );
+      fontscalebias copy = fsb;
+      
+      //vert bias
+      copy.vertscalebias.w += font_ptr.the_face->descender() + 2; //TODO: +2 seems to fix the position...
 
-      mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
+      //hori bias
+      if( c > 0 )
+        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      
+      //hori scale
+      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
 
+      //vert scale
+      copy.vertscalebias.y =  font_ptr.the_face->height() + font_ptr.the_face->linegap();
+
+      vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
+      texscalebias.push_back( copy.texscalebias );
+      fontcolor.push_back( highlight_color );
+    }
+
+    if( strikethrough )
+    {
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      fontscalebias& fsb = library::get().get_font_data( datapos );
+      fontscalebias copy = fsb;
+      
+      //vert bias
+      copy.vertscalebias.w += font_ptr.the_face->ascender() * 0.33f + 1; //TODO: +1 seems to fix the position...
+
+      //hori bias
+      if( c > 0 )
+        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      
+      //hori scale
+      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
+
+      //vert scale
+      copy.vertscalebias.y =  font_ptr.the_face->underline_thickness();
+
+      vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
+      texscalebias.push_back( copy.texscalebias );
+      fontcolor.push_back( color );
+    }
+
+    if( underline )
+    {
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      fontscalebias& fsb = library::get().get_font_data( datapos );
+      fontscalebias copy = fsb;
+      
+      //vert bias
+      copy.vertscalebias.w += font_ptr.the_face->underline_position() + 4; //TODO: +4 seems to fix the position...
+
+      //hori bias
+      if( c > 0 )
+        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      
+      //hori scale
+      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
+
+      //vert scale
+      copy.vertscalebias.y =  font_ptr.the_face->underline_thickness();
+
+      vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
+      texscalebias.push_back( copy.texscalebias );
+      fontcolor.push_back( color );
+    }
+
+    if( overline )
+    {
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      fontscalebias& fsb = library::get().get_font_data( datapos );
+      fontscalebias copy = fsb;
+      
+      //vert bias
+      copy.vertscalebias.w += font_ptr.the_face->ascender();
+
+      //hori bias
+      if( c > 0 )
+        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      
+      //hori scale
+      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
+
+      //vert scale
+      copy.vertscalebias.y =  font_ptr.the_face->underline_thickness();
+
+      vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
+      texscalebias.push_back( copy.texscalebias );
+      fontcolor.push_back( color );
+    }
+
+    if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' && !is_special(txt[c]) )
+    {
       add_glyph( font_ptr, txt[c] );
 
       unsigned int datapos = font_ptr.the_face->get_glyph( txt[c] ).cache_index;
-
       fontscalebias& fsb = library::get().get_font_data( datapos );
 
       vertscalebias.push_back( mm::vec4( fsb.vertscalebias.xy, fsb.vertscalebias.zw + pos.xy ) );
@@ -524,7 +720,8 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       fontcolor.push_back( color );
     }
 
-    xx += font_ptr.the_face->advance( txt[c] );
+    if( !is_special(txt[c]) )
+      xx += font_ptr.the_face->advance( txt[c] );
   }
 
   yy -= vert_advance;

@@ -250,7 +250,7 @@ int main( int argc, char** argv )
     //lastpos = font::get().add_to_render_list( L"hello ", instance2, vec4( 1, 0, 0, 1 ), lastpos );
     //lastpos = font::get().add_to_render_list( L"world\n", instance2, vec4( 0, 1, 0, 1 ), lastpos );
     //lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( 1 ), uvec2( 0, lastpos.y ) );
-    lastpos = font::get().add_to_render_list( L"Lorem ipsum dolor sit amet, consectetur adipiscing \n", instance, vec4( vec3(0),1 ), lastpos );
+    lastpos = font::get().add_to_render_list( L"\uE000\uE002\uE004\uE006Lorem ipsum dolor sit amet, consectetur adipiscing \uE007\uE005\uE003\uE001\n", instance, vec4( vec3(0),1 ), lastpos, vec4( 0.5, 0.8, 0.5, 1 ) );
     lastpos = font::get().add_to_render_list( L"elit. Vestibulum ultrices nibh vitae augue rhoncus, in \n", instance, vec4( vec3(0),1 ), lastpos );
     lastpos = font::get().add_to_render_list( L"porta dolor tristique. Donec quam risus, mollis eget \n", instance, vec4( vec3(0),1 ), lastpos );
     lastpos = font::get().add_to_render_list( L"mi vel, facilisis consectetur ipsum. Mauris a lacus \n", instance, vec4( vec3(0),1 ), lastpos );
