@@ -245,14 +245,16 @@ void font_inst::face::set_size( unsigned int val )
     h = ( ( ( FT_Face )the_face )->size->metrics.height / 64.0f ) / 100.0f;
     gap = h - asc + desc;
     
-    upos = std::round( upos / (64.0f*64.0f) * size );
+    upos = ( ( FT_Face )the_face )->underline_position / (64.0f*64.0f) * size;
+    upos = std::round( upos );
     
     if( upos > -2 )
     {
       upos = -2;
     }
 
-    uthick = std::round( uthick / (64.0f*64.0f) * size );
+    uthick = ( ( FT_Face )the_face )->underline_thickness / (64.0f*64.0f) * size;
+    uthick = std::round( uthick );
 
     if( uthick < 1 )
     {
@@ -366,10 +368,20 @@ bool font_inst::face::load_glyph( unsigned int val )
     g->w = ( float )bitmap->width;
     g->h = ( float )bitmap->rows;
 
-    g->texcoords[0] = ( float )texpen.x - 0.5f;
-    g->texcoords[1] = ( float )texpen.y - 0.5f;
-    g->texcoords[2] = ( float )texpen.x + ( float )bitmap->width + 0.5f;
-    g->texcoords[3] = ( float )texpen.y + ( float )bitmap->rows + 0.5f;
+    if( val != wchar_t(-1) )
+    {
+      g->texcoords[0] = ( float )texpen.x - 0.5f;
+      g->texcoords[1] = ( float )texpen.y - 0.5f;
+      g->texcoords[2] = ( float )texpen.x + ( float )bitmap->width + 0.5f;
+      g->texcoords[3] = ( float )texpen.y + ( float )bitmap->rows + 0.5f;
+    }
+    else
+    {
+      g->texcoords[0] = ( float )texpen.x;
+      g->texcoords[1] = ( float )texpen.y;
+      g->texcoords[2] = ( float )texpen.x + ( float )bitmap->width;
+      g->texcoords[3] = ( float )texpen.y + ( float )bitmap->rows;
+    }
 
     texpen.x += bitmap->width + 1;
 
@@ -533,21 +545,13 @@ static std::vector<mm::vec4> texscalebias;
 static std::vector<mm::vec4> fontcolor;
 
 //these special unicode characters denote the text markup begin/end
-// \uE000 == underline begin
 #define FONT_UNDERLINE_BEGIN L'\uE000'
-// \uE001 == underline end
 #define FONT_UNDERLINE_END L'\uE001'
-// \uE002 == overline begin
 #define FONT_OVERLINE_BEGIN L'\uE002'
-// \uE003 == overline end
 #define FONT_OVERLINE_END L'\uE003'
-// \uE004 == strikethrough begin
 #define FONT_STRIKETHROUGH_BEGIN L'\uE004'
-// \uE005 == strikethrough end
 #define FONT_STRIKETHROUGH_END L'\uE005'
-// \uE006 == highlight begin
 #define FONT_HIGHLIGHT_BEGIN L'\uE006'
-// \uE007 == highlight end
 #define FONT_HIGHLIGHT_END L'\uE007'
 
 bool is_special( wchar_t c )
@@ -612,6 +616,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
     float finalx = xx;
     mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
 
+    float advancex = 0;
+    
+    int i = 0;
+    for( i = c; i < txt.size(); ++i )
+    {
+      if( !is_special( txt[i] ) )
+        break;
+    }
+    advancex = font_ptr.the_face->advance( txt[i] );
+
     if( highlight )
     {
       unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
@@ -619,17 +633,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       fontscalebias copy = fsb;
       
       //vert bias
-      copy.vertscalebias.w += font_ptr.the_face->descender() + 2; //TODO: +2 seems to fix the position...
+      copy.vertscalebias.w = font_ptr.the_face->descender();
 
       //hori bias
-      if( c > 0 )
-        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      copy.vertscalebias.z = 0.0f;
       
       //hori scale
-      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
+      copy.vertscalebias.x = advancex;
 
       //vert scale
-      copy.vertscalebias.y =  font_ptr.the_face->height() + font_ptr.the_face->linegap();
+      copy.vertscalebias.y = font_ptr.the_face->height() + font_ptr.the_face->linegap();
 
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
@@ -643,17 +656,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       fontscalebias copy = fsb;
       
       //vert bias
-      copy.vertscalebias.w += font_ptr.the_face->ascender() * 0.33f + 1; //TODO: +1 seems to fix the position...
+      copy.vertscalebias.w = font_ptr.the_face->ascender() * 0.33f;
 
       //hori bias
-      if( c > 0 )
-        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      copy.vertscalebias.z = 0;
       
       //hori scale
-      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
+      copy.vertscalebias.x = advancex;
 
       //vert scale
-      copy.vertscalebias.y =  font_ptr.the_face->underline_thickness();
+      copy.vertscalebias.y = font_ptr.the_face->underline_thickness();
 
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
@@ -667,17 +679,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       fontscalebias copy = fsb;
       
       //vert bias
-      copy.vertscalebias.w += font_ptr.the_face->underline_position() + 4; //TODO: +4 seems to fix the position...
+      copy.vertscalebias.w = font_ptr.the_face->underline_position();
 
       //hori bias
-      if( c > 0 )
-        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      copy.vertscalebias.z = 0.0f;
       
       //hori scale
-      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
+      copy.vertscalebias.x = advancex;
 
       //vert scale
-      copy.vertscalebias.y =  font_ptr.the_face->underline_thickness();
+      copy.vertscalebias.y = font_ptr.the_face->underline_thickness();
 
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
@@ -691,17 +702,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       fontscalebias copy = fsb;
       
       //vert bias
-      copy.vertscalebias.w += font_ptr.the_face->ascender();
+      copy.vertscalebias.w = font_ptr.the_face->ascender();
 
       //hori bias
-      if( c > 0 )
-        copy.vertscalebias.z += font_ptr.the_face->kerning( txt[c - 1], txt[c] );;
+      copy.vertscalebias.z = 0.0f;
       
       //hori scale
-      copy.vertscalebias.x += font_ptr.the_face->advance( txt[c] );
+      copy.vertscalebias.x = advancex;
 
       //vert scale
-      copy.vertscalebias.y =  font_ptr.the_face->underline_thickness();
+      copy.vertscalebias.y = font_ptr.the_face->underline_thickness();
 
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
@@ -713,10 +723,9 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       add_glyph( font_ptr, txt[c] );
 
       unsigned int datapos = font_ptr.the_face->get_glyph( txt[c] ).cache_index;
-      fontscalebias& fsb = library::get().get_font_data( datapos );
-
-      vertscalebias.push_back( mm::vec4( fsb.vertscalebias.xy, fsb.vertscalebias.zw + pos.xy ) );
-      texscalebias.push_back( fsb.texscalebias );
+      auto thefsb = library::get().get_font_data( datapos );
+      vertscalebias.push_back( mm::vec4( thefsb.vertscalebias.xy, thefsb.vertscalebias.zw + pos.xy ) );
+      texscalebias.push_back( thefsb.texscalebias );
       fontcolor.push_back( color );
     }
 
