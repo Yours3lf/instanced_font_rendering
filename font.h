@@ -18,7 +18,7 @@ struct glyph;
 class font;
 class font_inst;
 
-#define FONT_LIB_VBO_SIZE 6
+#define FONT_LIB_VBO_SIZE 7
 
 struct fontscalebias
 {
@@ -108,12 +108,12 @@ class library
     }
 
     template< class t >
-    void update_scalebiascolor( unsigned int i, const t& tt )
+    void update_scalebiascolor( unsigned int i, const std::vector< t >& tt )
     {
       glBindBuffer( GL_ARRAY_BUFFER, vbos[i] );
 
       if( tt.size() > 0 )
-        glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec4 ) * tt.size(), &tt[0], GL_DYNAMIC_DRAW );
+        glBufferData( GL_ARRAY_BUFFER, sizeof( t ) * tt.size(), &tt[0], GL_DYNAMIC_DRAW );
     }
 
     bool expand_tex();
@@ -211,7 +211,7 @@ class font
     font& operator=( const font& );
   public:
     void load_font( const std::string& filename, font_inst& font_ptr, unsigned int size );
-    mm::vec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::vec2 pos = mm::vec2(), mm::vec4 highlight_color = mm::vec4( 1 ), float line_height = 1 );
+    mm::vec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::vec2 pos = mm::vec2(), mm::mat4 mat = mm::mat4(), mm::vec4 highlight_color = mm::vec4( 1 ), float line_height = 1 );
     void render();
 
     void set_size( font_inst& f, unsigned int s );

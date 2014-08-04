@@ -164,8 +164,8 @@ int main( int argc, char** argv )
   std::wstring text;
 
   //text = L"hello world\n";
-  for( int c = 0; c < 32; ++c )
-    text += L" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\"..................\n";
+  //for( int c = 0; c < 43; ++c )
+    text += L" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\".aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n";
 
   /*
    * Handle events
@@ -208,7 +208,7 @@ int main( int argc, char** argv )
           if( ev.key.code == sf::Keyboard::Add )
           {
             ++size;
-            font::get().set_size( instance2, size );
+            font::get().set_size( instance, size );
           }
 
           if( ev.key.code == sf::Keyboard::Subtract )
@@ -216,7 +216,7 @@ int main( int argc, char** argv )
             if( size > 1 )
             {
               --size;
-              font::get().set_size( instance2, size );
+              font::get().set_size( instance, size );
             }
           }
         }
@@ -232,6 +232,9 @@ int main( int argc, char** argv )
   sf::Clock timer;
   timer.restart();
   unsigned int frame_count = 0;
+
+  sf::Clock thetimer;
+  thetimer.restart();
 
   sf::Event the_event;
 
@@ -249,7 +252,10 @@ int main( int argc, char** argv )
     //lastpos = font::get().add_to_render_list( L"", instance2, vec4( 1, 0, 0, 1 ) );
     //lastpos = font::get().add_to_render_list( L"hello ", instance2, vec4( 1, 0, 0, 1 ), lastpos );
     //lastpos = font::get().add_to_render_list( L"world\n", instance2, vec4( 0, 1, 0, 1 ), lastpos );
-    //lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( 1 ), uvec2( 0, lastpos.y ) );
+    mat4 mat = create_rotation( radians( -thetimer.getElapsedTime().asMilliseconds() * 0.001f ), vec3( 0, 0, 1 ) );
+    //mat = mat * create_translation( vec3( 0, 10, 0 ) );
+    lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( vec3(0), 1 ), vec2( 0, lastpos.y ), mat );
+    /**
     lastpos = font::get().add_to_render_list( L"\uE000\uE002\uE004\uE006Lorem ipsum dolor sit amet, consectetur adipiscing \uE007\uE005\uE003\uE001\n", instance, vec4( vec3(0),1 ), lastpos, vec4( 0.5, 0.8, 0.5, 1 ) );
     lastpos = font::get().add_to_render_list( L"elit. Vestibulum ultrices nibh vitae augue rhoncus, in \n", instance, vec4( vec3(0),1 ), lastpos );
     lastpos = font::get().add_to_render_list( L"porta dolor tristique. Donec quam risus, mollis eget \n", instance, vec4( vec3(0),1 ), lastpos );
@@ -264,6 +270,7 @@ int main( int argc, char** argv )
     lastpos = font::get().add_to_render_list( L"tincidunt turpis quis, imperdiet turpis. Nullam eget \n", instance, vec4( vec3(0),1 ), lastpos );
     lastpos = font::get().add_to_render_list( L"est tempus, pulvinar lectus ut, lacinia est. Proin \n", instance, vec4( vec3(0),1 ), lastpos );
     lastpos = font::get().add_to_render_list( L"placerat tristique diam, a porttitor magna lobortis \n", instance, vec4( vec3(0),1 ), lastpos );
+    /**/
 
     font::get().render();
 

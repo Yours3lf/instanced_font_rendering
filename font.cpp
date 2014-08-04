@@ -14,6 +14,7 @@
 #define FONT_TEXSCALEBIAS 3
 #define FONT_COLOR 4
 #define FONT_FACE 5
+#define FONT_TRANSFORM 6
 
 wchar_t buf[2] = {-1, L'\0'};
 std::wstring cachestring = std::wstring(buf) + L" 0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
@@ -142,6 +143,16 @@ void library::set_up()
   glGenBuffers( 1, &vbos[FONT_FACE] );
   glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, vbos[FONT_FACE] );
   glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( mm::uvec3 ) * faces.size(), &faces[0], GL_STATIC_DRAW );
+
+  glGenBuffers( 1, &vbos[FONT_TRANSFORM] );
+  glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TRANSFORM] );
+  
+  for( int c = 0; c < 6; ++c )
+  {
+    glEnableVertexAttribArray( FONT_TRANSFORM + c );
+    glVertexAttribPointer( FONT_TRANSFORM + c, 4, GL_FLOAT, false, sizeof( mm::mat4 ), ((char*)0) + sizeof( mm::vec4 ) * c  );
+    glVertexAttribDivisor( FONT_TRANSFORM + c , 1 );
+  } 
 
   glBindVertexArray( 0 );
 
@@ -543,6 +554,7 @@ void font::resize( mm::uvec2 ss )
 static std::vector<mm::vec4> vertscalebias;
 static std::vector<mm::vec4> texscalebias;
 static std::vector<mm::vec4> fontcolor;
+static std::vector<mm::mat4> transform;
 
 //these special unicode characters denote the text markup begin/end
 #define FONT_UNDERLINE_BEGIN L'\uE000'
@@ -566,7 +578,7 @@ bool is_special( wchar_t c )
          c == FONT_HIGHLIGHT_END;
 }
 
-mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::vec2 pos, mm::vec4 highlight_color, float line_height )
+mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::vec2 pos, mm::mat4 mat, mm::vec4 highlight_color, float line_height )
 {
   static bool underline = false;
   static bool overline = false;
@@ -647,6 +659,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( highlight_color );
+      transform.push_back( mat );
     }
 
     if( strikethrough )
@@ -670,6 +683,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( color );
+      transform.push_back( mat );
     }
 
     if( underline )
@@ -693,6 +707,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( color );
+      transform.push_back( mat );
     }
 
     if( overline )
@@ -716,6 +731,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       vertscalebias.push_back( mm::vec4( copy.vertscalebias.xy, copy.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( color );
+      transform.push_back( mat );
     }
 
     if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' && !is_special(txt[c]) )
@@ -727,6 +743,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       vertscalebias.push_back( mm::vec4( thefsb.vertscalebias.xy, thefsb.vertscalebias.zw + pos.xy ) );
       texscalebias.push_back( thefsb.texscalebias );
       fontcolor.push_back( color );
+      transform.push_back( mat );
     }
 
     if( !is_special(txt[c]) )
@@ -759,6 +776,7 @@ void font::render()
   library::get().update_scalebiascolor( FONT_VERTSCALEBIAS, vertscalebias );
   library::get().update_scalebiascolor( FONT_TEXSCALEBIAS, texscalebias );
   library::get().update_scalebiascolor( FONT_COLOR, fontcolor );
+  library::get().update_scalebiascolor( FONT_TRANSFORM, transform );
 
   glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, vertscalebias.size() );
 
@@ -773,4 +791,5 @@ void font::render()
   vertscalebias.clear();
   texscalebias.clear();
   fontcolor.clear();
+  transform.clear();
 }
