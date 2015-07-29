@@ -107,7 +107,7 @@ int main( int argc, char** argv )
     exit( 1 );
   }
 
-  the_window.setVerticalSyncEnabled( true );
+  //the_window.setVerticalSyncEnabled( true );
 
   GLenum glew_error = glewInit();
 
@@ -164,7 +164,7 @@ int main( int argc, char** argv )
   std::wstring text;
 
   //text = L"hello world\n";
-  //for( int c = 0; c < 43; ++c )
+  for( int c = 0; c < 43; ++c )
     text += L" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+!%/=()~|$[]<>#&@{},.-?:_;*`^'\".aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n";
 
   /*
@@ -252,9 +252,11 @@ int main( int argc, char** argv )
     //lastpos = font::get().add_to_render_list( L"", instance2, vec4( 1, 0, 0, 1 ) );
     //lastpos = font::get().add_to_render_list( L"hello ", instance2, vec4( 1, 0, 0, 1 ), lastpos );
     //lastpos = font::get().add_to_render_list( L"world\n", instance2, vec4( 0, 1, 0, 1 ), lastpos );
-    mat4 mat = create_rotation( radians( -thetimer.getElapsedTime().asMilliseconds() * 0.001f ), vec3( 0, 0, 1 ) );
+    mat4 mat = mat4(1);
+    //mat = mat * create_scale( vec3( 0.5 ) );
+    mat = mat * create_rotation( radians( -thetimer.getElapsedTime().asMilliseconds() * 0.001f ), vec3( 0, 0, 1 ) );
     //mat = mat * create_translation( vec3( 0, 10, 0 ) );
-    lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( vec3(0), 1 ), vec2( 0, lastpos.y ), mat );
+    lastpos = font::get().add_to_render_list( text + L"_" + L"\n", instance, vec4( vec3(0), 1 ), mat );
     /**
     lastpos = font::get().add_to_render_list( L"\uE000\uE002\uE004\uE006Lorem ipsum dolor sit amet, consectetur adipiscing \uE007\uE005\uE003\uE001\n", instance, vec4( vec3(0),1 ), lastpos, vec4( 0.5, 0.8, 0.5, 1 ) );
     lastpos = font::get().add_to_render_list( L"elit. Vestibulum ultrices nibh vitae augue rhoncus, in \n", instance, vec4( vec3(0),1 ), lastpos );

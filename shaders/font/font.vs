@@ -18,5 +18,5 @@ void main()
   fontcolor = instance_color;
   tex_coord = in_texture.xy;
   texscalebias = instance_texscalebias;
-  gl_Position = (mvp * instance_transform) * vec4(in_vertex.xy * instance_vertscalebias.xy + instance_vertscalebias.zw, 0, 1);
+  gl_Position = (mvp) * vec4((instance_transform * vec4(in_vertex.xy, 0, 1)).xy * instance_vertscalebias.xy + instance_vertscalebias.zw, 0, 1);
 }

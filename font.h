@@ -18,14 +18,14 @@ struct glyph;
 class font;
 class font_inst;
 
-#define FONT_LIB_VBO_SIZE 7
+#define FONT_LIB_VBO_SIZE 8
 
 struct fontscalebias
 {
   mm::vec4 vertscalebias;
   mm::vec4 texscalebias;
 
-  fontscalebias( mm::vec2 vertscale, mm::vec2 vertbias, mm::vec2 texscale, mm::vec2 texbias ) :
+  fontscalebias( const mm::vec2& vertscale, const mm::vec2& vertbias, const mm::vec2& texscale, const mm::vec2& texbias ) :
     vertscalebias( mm::vec4( vertscale, vertbias ) ), texscalebias( mm::vec4( texscale, texbias ) ) {}
 };
 
@@ -39,6 +39,7 @@ class library
     mm::uvec2 texture_pen;
     GLint texture_row_h;
     GLuint tex; //font texture
+    GLuint texsampler_point, texsampler_linear;
     mm::uvec2 texsize;
     GLuint vao; //vao
     GLuint vbos[FONT_LIB_VBO_SIZE]; //vbos
@@ -99,7 +100,13 @@ class library
 
     void bind_texture()
     {
+      glActiveTexture( GL_TEXTURE0 );
       glBindTexture( GL_TEXTURE_RECTANGLE, tex );
+      glActiveTexture( GL_TEXTURE1 );
+      glBindTexture( GL_TEXTURE_RECTANGLE, tex );
+
+      glBindSampler( 0, texsampler_point );
+      glBindSampler( 1, texsampler_linear );
     }
 
     void bind_vao()
@@ -211,12 +218,12 @@ class font
     font& operator=( const font& );
   public:
     void load_font( const std::string& filename, font_inst& font_ptr, unsigned int size );
-    mm::vec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, mm::vec4 color = mm::vec4( 1 ), mm::vec2 pos = mm::vec2(), mm::mat4 mat = mm::mat4(), mm::vec4 highlight_color = mm::vec4( 1 ), float line_height = 1 );
+    mm::vec2 add_to_render_list( const std::wstring& text, font_inst& font_ptr, const mm::vec4& color = mm::vec4( 1 ), const mm::mat4& mat = mm::mat4::identity, const mm::vec4& highlight_color = mm::vec4( 1 ), float line_height = 1, float filter = 0 );
     void render();
 
     void set_size( font_inst& f, unsigned int s );
 
-    void resize( mm::uvec2 ss );
+    void resize( const mm::uvec2& ss );
 
     void destroy()
     {

@@ -15,9 +15,10 @@
 #define FONT_COLOR 4
 #define FONT_FACE 5
 #define FONT_TRANSFORM 6
+#define FONT_FILTER 7
 
 wchar_t buf[2] = {-1, L'\0'};
-std::wstring cachestring = std::wstring(buf) + L" 0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
+std::wstring cachestring = std::wstring(buf) + L" 0123456789a�bcde�fghi�jklmno���pqrstu���vwxyzA�BCDE�FGHI�JKLMNO���PQRSTU���VWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
 
 struct glyph
 {
@@ -26,12 +27,13 @@ struct glyph
   float w;
   float h;
   float texcoords[4];
+  FT_Glyph_Metrics metrics;
   FT_Vector advance;
   FT_UInt glyphid;
   unsigned int cache_index;
 };
 
-library::library() : the_library( 0 ), tex( 0 ), vao( 0 ), the_shader( 0 ), is_set_up( false )
+library::library() : the_library( 0 ), tex( 0 ), texsampler_point( 0 ), texsampler_linear( 0 ), vao( 0 ), the_shader( 0 ), is_set_up( false )
 {
   for( int c = 0; c < FONT_LIB_VBO_SIZE; ++c )
     vbos[c] = 0;
@@ -47,6 +49,8 @@ library::library() : the_library( 0 ), tex( 0 ), vao( 0 ), the_shader( 0 ), is_s
 
 void library::destroy()
 {
+  glDeleteSamplers( 1, &texsampler_point );
+  glDeleteSamplers( 1, &texsampler_linear );
   glDeleteTextures( 1, &tex );
   glDeleteVertexArrays( 1, &vao );
   glDeleteBuffers( FONT_LIB_VBO_SIZE, vbos );
@@ -85,40 +89,75 @@ void library::set_up()
 {
   if( is_set_up ) return;
 
+  texture_pen = mm::uvec2( 0 );
+  texsize = mm::uvec2( 0 );
+
   glGenTextures( 1, &tex );
 
-  std::vector<mm::uvec3> faces;
-  std::vector<mm::vec2> vertices;
-  std::vector<mm::vec2> texcoords;
-  faces.resize( 2 );
-  vertices.resize( 4 );
-  texcoords.resize( 4 );
+  glGenSamplers( 1, &texsampler_point );
+  glGenSamplers( 1, &texsampler_linear );
 
-  faces[0] = mm::uvec3( 2, 1, 0 );
-  faces[1] = mm::uvec3( 0, 3, 2 );
+  glSamplerParameteri( texsampler_point, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+  glSamplerParameteri( texsampler_point, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+  glSamplerParameteri( texsampler_point, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+  glSamplerParameteri( texsampler_point, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 
-  vertices[0] = mm::vec2( 0, 0 );
-  vertices[1] = mm::vec2( 0, 1 );
-  vertices[2] = mm::vec2( 1, 1 );
-  vertices[3] = mm::vec2( 1, 0 );
+  glSamplerParameteri( texsampler_linear, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+  glSamplerParameteri( texsampler_linear, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+  glSamplerParameteri( texsampler_linear, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+  glSamplerParameteri( texsampler_linear, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 
-  texcoords[0] = mm::vec2( 0, 0 );
-  texcoords[1] = mm::vec2( 0, 1 );
-  texcoords[2] = mm::vec2( 1, 1 );
-  texcoords[3] = mm::vec2( 1, 0 );
+  std::vector<unsigned> faces;
+  std::vector<float> vertices;
+  std::vector<float> texcoords;
+  faces.resize( 2 * 3 );
+  vertices.resize( 4 * 2 );
+  texcoords.resize( 4 * 2 );
+
+  faces[0*3+0] = 2;
+  faces[0*3+1] = 1;
+  faces[0*3+2] = 0;
+
+  faces[1*3+0] = 0;
+  faces[1*3+1] = 3;
+  faces[1*3+2] = 2;
+
+  vertices[0*2+0] = 0;
+  vertices[0*2+1] = 0;
+
+  vertices[1*2+0] = 0;
+  vertices[1*2+1] = 1;
+
+  vertices[2*2+0] = 1;
+  vertices[2*2+1] = 1;
+
+  vertices[3*2+0] = 1;
+  vertices[3*2+1] = 0;
+
+  texcoords[0*2+0] = 0;
+  texcoords[0 * 2 + 1] = 0;
+
+  texcoords[1 * 2 + 0] = 0;
+  texcoords[1 * 2 + 1] = 1;
+
+  texcoords[2*2+0] = 1;
+  texcoords[2 * 2 + 1] = 1;
+
+  texcoords[3*2+0] = 1;
+  texcoords[3 * 2 + 1] = 0;
 
   glGenVertexArrays( 1, &vao );
   glBindVertexArray( vao );
 
   glGenBuffers( 1, &vbos[FONT_VERTEX] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_VERTEX] );
-  glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec2 ) * vertices.size(), &vertices[0], GL_STATIC_DRAW );
+  glBufferData( GL_ARRAY_BUFFER, sizeof( float ) * 2 * vertices.size(), &vertices[0], GL_STATIC_DRAW );
   glEnableVertexAttribArray( FONT_VERTEX );
   glVertexAttribPointer( FONT_VERTEX, 2, GL_FLOAT, false, 0, 0 );
 
   glGenBuffers( 1, &vbos[FONT_TEXCOORD] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TEXCOORD] );
-  glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec2 ) * texcoords.size(), &texcoords[0], GL_STATIC_DRAW );
+  glBufferData( GL_ARRAY_BUFFER, sizeof( float ) * 2 * texcoords.size(), &texcoords[0], GL_STATIC_DRAW );
   glEnableVertexAttribArray( FONT_TEXCOORD );
   glVertexAttribPointer( FONT_TEXCOORD, 2, GL_FLOAT, false, 0, 0 );
 
@@ -142,17 +181,22 @@ void library::set_up()
 
   glGenBuffers( 1, &vbos[FONT_FACE] );
   glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, vbos[FONT_FACE] );
-  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( mm::uvec3 ) * faces.size(), &faces[0], GL_STATIC_DRAW );
-
+  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( unsigned ) * 3 * faces.size(), &faces[0], GL_STATIC_DRAW );
   glGenBuffers( 1, &vbos[FONT_TRANSFORM] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TRANSFORM] );
   
-  for( int c = 0; c < 6; ++c )
+  for( int c = 0; c < 4; ++c )
   {
     glEnableVertexAttribArray( FONT_TRANSFORM + c );
     glVertexAttribPointer( FONT_TRANSFORM + c, 4, GL_FLOAT, false, sizeof( mm::mat4 ), ((char*)0) + sizeof( mm::vec4 ) * c  );
     glVertexAttribDivisor( FONT_TRANSFORM + c , 1 );
   } 
+
+  glGenBuffers( 1, &vbos[FONT_FILTER] );
+  glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_FILTER] );
+  glEnableVertexAttribArray( FONT_FILTER+3 );
+  glVertexAttribPointer( FONT_FILTER+3, 1, GL_FLOAT, false, sizeof( float ), 0 );
+  glVertexAttribDivisor( FONT_FILTER+3, 1 );
 
   glBindVertexArray( 0 );
 
@@ -545,7 +589,7 @@ void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned
   library::get().instances.push_back( &font_ptr );
 }
 
-void font::resize( mm::uvec2 ss )
+void font::resize( const mm::uvec2& ss )
 {
   screensize = ss;
   font_frame.set_ortographic( 0.0f, ( float )ss.x, 0.0f, ( float )ss.y, 0.0f, 1.0f );
@@ -555,6 +599,7 @@ static std::vector<mm::vec4> vertscalebias;
 static std::vector<mm::vec4> texscalebias;
 static std::vector<mm::vec4> fontcolor;
 static std::vector<mm::mat4> transform;
+static std::vector<float> filter;
 
 //these special unicode characters denote the text markup begin/end
 #define FONT_UNDERLINE_BEGIN L'\uE000'
@@ -578,15 +623,15 @@ bool is_special( wchar_t c )
          c == FONT_HIGHLIGHT_END;
 }
 
-mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::vec2 pos, mm::mat4 mat, mm::vec4 highlight_color, float line_height )
+mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, const mm::vec4& color, const mm::mat4& mat, const mm::vec4& highlight_color, float line_height, float f )
 {
   static bool underline = false;
   static bool overline = false;
   static bool strikethrough = false;
   static bool highlight = false;
 
-  float yy = pos.y;
-  float xx = pos.x;
+  float yy = 0;
+  float xx = 0;
 
   float vert_advance = font_ptr.the_face->height() - font_ptr.the_face->linegap();
   vert_advance *= line_height;
@@ -600,7 +645,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
     if( txt[c] == L'\n' )
     {
       yy += vert_advance;
-      xx = pos.x;
+      xx = 0;
     }
 
     if( c > 0 && txt[c] != L'\n' && !is_special(txt[c]) )
@@ -660,6 +705,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( highlight_color );
       transform.push_back( mat );
+      filter.push_back( f );
     }
 
     if( strikethrough )
@@ -684,6 +730,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( color );
       transform.push_back( mat );
+      filter.push_back( f );
     }
 
     if( underline )
@@ -708,6 +755,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( color );
       transform.push_back( mat );
+      filter.push_back( f );
     }
 
     if( overline )
@@ -732,6 +780,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       texscalebias.push_back( copy.texscalebias );
       fontcolor.push_back( color );
       transform.push_back( mat );
+      filter.push_back( f );
     }
 
     if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' && !is_special(txt[c]) )
@@ -744,6 +793,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       texscalebias.push_back( thefsb.texscalebias );
       fontcolor.push_back( color );
       transform.push_back( mat );
+      filter.push_back( f );
     }
 
     if( !is_special(txt[c]) )
@@ -777,6 +827,7 @@ void font::render()
   library::get().update_scalebiascolor( FONT_TEXSCALEBIAS, texscalebias );
   library::get().update_scalebiascolor( FONT_COLOR, fontcolor );
   library::get().update_scalebiascolor( FONT_TRANSFORM, transform );
+  library::get().update_scalebiascolor( FONT_FILTER, filter );
 
   glDrawElementsInstanced( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, vertscalebias.size() );
 
@@ -792,4 +843,5 @@ void font::render()
   texscalebias.clear();
   fontcolor.clear();
   transform.clear();
+  filter.clear();
 }
